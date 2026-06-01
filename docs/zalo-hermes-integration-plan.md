@@ -518,90 +518,132 @@ npm run build  # TypeScript → dist/
 
 ## 🎯 PHẦN 5: ROADMAP CHI TIẾT (REVISED)
 
-### Phase 1: Minimal Worker + Adapter (1 tuần)
+> **Cập nhật trạng thái: 2026-06-01**
+> Hermes đã được nâng cấp lên `v0.14.0` (upstream/main). Merge ZaloClaw thành công. Docker image đã được rebuild.
+
+### Phase 1: Minimal Worker + Adapter ✅ HOÀN THÀNH
 
 **Mục tiêu:** Gửi/nhận text messages cơ bản
 
-**Tasks:**
-1. Setup worker project structure
-2. Implement basic IPC protocol (stdio JSON-RPC)
-3. Integrate zca-js login flow
-4. Implement send_message, receive events
-5. Python adapter với subprocess management
-6. Basic error handling
+**Đã thực hiện:**
+- [x] Setup worker project structure (`gateway/platforms/zalo/worker/`)
+- [x] Implement basic IPC protocol (stdio JSON-RPC)
+- [x] Integrate zca-js login flow (QR code)
+- [x] Implement send, receive events
+- [x] Python adapter với subprocess management (`gateway/platforms/zalo.py`)
+- [x] Basic error handling, UTF-8 encoding fix cho Windows
 
-**Deliverable:**
-- `/send hello` từ Hermes → Zalo ✅
-- Tin nhắn từ Zalo → hiện trong Hermes chat ✅
+**Deliverable đạt được:**
+- ✅ Nhận tin nhắn từ Zalo → hiện trong Hermes chat
+- ✅ Hermes trả lời ngược lại qua Zalo
 
-### Phase 2: Rich Messages & Media (1 tuần)
+**Lỗi đã xử lý trong Phase này:**
+- `MessageEvent.__init__() got unexpected keyword argument 'platform'` → dùng `build_source()`
+- `KeyError: 'from_id'` → dùng fallback chain `.get()` với nhiều tên trường
+- QR file lock trên Windows → fallback sang tên file timestamp
+- `UnicodeDecodeError` subprocess → thêm `encoding='utf-8', errors='replace'`
 
-**Tasks:**
+---
+
+### Phase 2: Rich Messages & Media ⏳ CHƯA BẮT ĐẦU
+
+**Tasks cần làm:**
 1. Worker: Implement media handlers
-   - send_image, send_file, send_video
-   - Download received media
+   - send_image (từ URL + local path) — đã có hàm cơ bản, cần hoàn thiện
+   - send_file, send_video
+   - Download và cache received media
 2. Adapter: Media caching integration
-   - cache_image_from_bytes, etc.
+   - `cache_image_from_bytes()`
 3. Message formatting
-   - Markdown → Zalo styled text
-   - Handle max message length
+   - Markdown → Zalo styled text conversion
+   - Handle max message length (Zalo giới hạn ~2000 ký tự)
 
-**Deliverable:**
-- Gửi/nhận ảnh, file, video ✅
-- Rich text formatting ✅
+**Deliverable mục tiêu:**
+- Gửi/nhận ảnh, file, video
+- Rich text formatting
 
-### Phase 3: Session & Auth (3-5 ngày)
+---
 
-**Tasks:**
-1. QR code login flow
-   - Display QR in Hermes terminal
-   - Save cookies to shared location
-2. Session persistence
-   - Auto-reconnect on worker restart
-   - Cookie refresh mechanism
-3. Multi-session support (optional)
+### Phase 3: Session & Auth ✅ HOÀN THÀNH (cơ bản)
 
-**Deliverable:**
-- Scan QR → login → persistent session ✅
-- Auto-reconnect after Hermes restart ✅
+**Đã thực hiện:**
+- [x] QR code login flow — lưu QR tại `~/.hermes/data/zalo_qr.png`
+- [x] Session persistence — lưu tại `~/.hermes/data/zalo_session.json`
+- [x] Auto-reconnect cơ bản khi worker restart
 
-### Phase 4: Access Control & Groups (3-5 ngày)
+**Còn thiếu (Phase 3 nâng cao):**
+- [ ] Cookie refresh mechanism tự động khi hết hạn
+- [ ] Multi-session support (nhiều tài khoản Zalo)
+- [ ] Alert khi session hết hạn
 
-**Tasks:**
-1. Port access control from zaloclaw
-   - DM policy, group policy
-   - Allowlist/denylist
-2. Group message handling
-   - Mention detection
-   - requireMention config
-3. User/group info caching
+---
 
-**Deliverable:**
-- Bot chỉ reply khi @mention trong group ✅
-- Allowlist enforcement ✅
+### Phase 4: Access Control & Groups ✅ HOÀN THÀNH
 
-### Phase 5: Advanced Features (1-2 tuần)
+**Đã thực hiện:**
+- [x] Port access control từ zaloclaw
+  - DM policy (open, closed, allowlist, denylist)
+  - Group policy (open, closed, allowlist, denylist)
+  - Allowlist/denylist per-user, per-group
+- [x] Group message handling
+  - Mention detection (phát hiện khi bot bị tag)
+  - `requireMention` config option
+  - Strip mention prefix tự động
+  - Regex mention patterns support
+- [x] User/group info caching
+  - TTL-based cache (5 phút) cho user info và group info
+  - Actions: `get-user-info`, `get-group-info`, `refresh-group-info`
+  - IPC methods: `cache_user_info`, `cache_group_info`, `get_cached_user_info`, `get_cached_group_info`
+- [x] Defense-in-depth: access control chạy cả ở worker (TypeScript) và adapter (Python)
+- [x] Runtime config update qua `update_access_control` IPC method
+- [x] Status reporting qua `get_access_control_status`
 
-**Tasks:**
-1. Cron delivery integration
-2. send_message tool support
+**Config options (config.yaml `tools.zalo.extra` hoặc env vars):**
+| Option | Env Var | Default | Description |
+|--------|---------|---------|-------------|
+| `dm_policy` | `ZALO_DM_POLICY` | `"open"` | `"open"`, `"closed"`, `"allowlist"`, `"denylist"` |
+| `group_policy` | `ZALO_GROUP_POLICY` | `"open"` | `"open"`, `"closed"`, `"allowlist"`, `"denylist"` |
+| `require_mention` | `ZALO_REQUIRE_MENTION` | `false` | Yêu cầu @mention trong group |
+| `allowlisted_users` | `ZALO_ALLOWLISTED_USERS` | `""` | Comma-separated user IDs |
+| `denylisted_users` | `ZALO_DENYLISTED_USERS` | `""` | Comma-separated user IDs |
+| `allowlisted_groups` | `ZALO_ALLOWLISTED_GROUPS` | `""` | Comma-separated group IDs |
+| `denylisted_groups` | `ZALO_DENYLISTED_GROUPS` | `""` | Comma-separated group IDs |
+| `mention_patterns` | `ZALO_MENTION_PATTERNS` | `[]` | JSON array of regex patterns |
+| `bot_name` | `ZALO_BOT_NAME` | `null` | Tên bot để phát hiện mention |
+| `bot_user_id` | `ZALO_BOT_USER_ID` | `null` | User ID của bot |
+
+**Deliverable đạt được:**
+- Bot chỉ reply khi @mention trong group (khi `require_mention: true`)
+- Allowlist/denylist enforcement hoạt động đầy đủ
+- User/group info caching giảm API calls
+- Mention prefix tự động strip khỏi message text
+
+---
+
+### Phase 5: Advanced Features ⏳ CHƯA BẮT ĐẦU
+
+**Tasks cần làm:**
+1. Cron delivery integration (gửi tin nhắn theo lịch)
+2. `send_message` tool support (agent chủ động gửi tin)
 3. Platform hints trong system prompt
-4. Rate limiting
-5. Error recovery & logging
+4. Rate limiting đầy đủ (1 msg/sec, backoff)
+5. Error recovery & structured logging
 6. Metrics & monitoring
 
-**Deliverable:**
-- Scheduled messages via cron ✅
-- Cross-platform send_message ✅
-- Production-ready stability ✅
+**Deliverable mục tiêu:**
+- Scheduled messages via cron
+- Cross-platform send_message
+- Production-ready stability
 
-### Phase 6: Testing & Documentation (1 tuần)
+---
 
-**Tasks:**
+### Phase 6: Testing & Documentation ⏳ CHƯA BẮT ĐẦU
+
+**Tasks cần làm:**
 1. Unit tests (adapter + worker)
-2. Integration tests
-3. User documentation
-4. Setup wizard contribution
+2. Integration tests end-to-end
+3. User documentation (setup guide)
+4. Setup wizard contribution cho Hermes
 5. Example configurations
 
 ---

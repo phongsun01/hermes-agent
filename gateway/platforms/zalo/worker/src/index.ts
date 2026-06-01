@@ -1,13 +1,28 @@
 
 import { createInterface } from "node:readline";
 import { LoginQRCallbackEventType } from "zca-js";
-import { loginWithQR, loginWithCredentials, getApi } from "./client.js";
+import { loginWithQR, loginWithCredentials, getApi, getCurrentUid } from "./client.js";
 import { hasCredentials } from "./credentials.js";
 import { dispatch } from "./actions.js";
 import { IPCRequest, IPCResponse, IPCEvent } from "./ipc.js";
+import {
+    parseAccessControlConfig,
+    checkAccess,
+    stripMentionPrefix,
+    isMentioned,
+    AccessDecision,
+    getAccessControlStatus,
+    setCachedUserInfo,
+    setCachedGroupInfo,
+    getCachedUserInfo,
+    getCachedGroupInfo,
+    clearAllCaches,
+    type AccessControlConfig,
+} from "./access-control.js";
 
 class ZaloWorker {
     private api: any = null;
+    private acConfig: AccessControlConfig = { ...parseAccessControlConfig({}) };
 
     async start() {
         console.error("🚀 Zalo Worker starting...");
@@ -22,9 +37,13 @@ class ZaloWorker {
                 await this.qrLogin();
             }
 
+            // Load access control config from environment or file
+            this.loadAccessControlConfig();
+
             // Start listener
             this.api.listener.on("message", (msg: any) => {
-                this.emit("message", this.normalizeMessage(msg));
+                const normalized = this.normalizeMessage(msg);
+                this.handleIncomingMessage(normalized);
             });
 
             this.api.listener.start();
@@ -37,6 +56,31 @@ class ZaloWorker {
             console.error("❌ Fatal error during startup:", err.message);
             process.exit(1);
         }
+    }
+
+    private loadAccessControlConfig() {
+        const raw = process.env.ZALO_ACCESS_CONTROL;
+        if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                this.acConfig = parseAccessControlConfig(parsed);
+                console.error("🔒 Access control config loaded from ZALO_ACCESS_CONTROL env");
+            } catch (err: any) {
+                console.error("⚠️ Failed to parse ZALO_ACCESS_CONTROL:", err.message);
+            }
+        }
+
+        // Set bot identity for mention detection
+        if (!this.acConfig.botUserId) {
+            const uid = getCurrentUid();
+            if (uid) {
+                this.acConfig.botUserId = uid;
+            }
+        }
+
+        // Log access control status
+        const status = getAccessControlStatus(this.acConfig);
+        console.error(`🔒 AC Status: DM=${status.dmPolicy}, Group=${status.groupPolicy}, Mention=${status.requireMention}`);
     }
 
     private async qrLogin() {
@@ -60,6 +104,35 @@ class ZaloWorker {
             is_group: !!msg.groupId,
             raw: msg
         };
+    }
+
+    private handleIncomingMessage(normalized: any) {
+        const ctx = {
+            fromId: normalized.from_id ?? "unknown",
+            chatId: normalized.chat_id ?? "unknown",
+            isGroup: normalized.is_group,
+            text: normalized.text ?? "",
+        };
+
+        const result = checkAccess(ctx, this.acConfig);
+
+        if (result.decision === AccessDecision.DENY) {
+            console.error(`[AC] DENIED ${ctx.fromId} in ${ctx.isGroup ? "group" : "DM"} ${ctx.chatId}: ${result.reason}`);
+            return;
+        }
+
+        if (result.decision === AccessDecision.IGNORE) {
+            console.error(`[AC] IGNORED ${ctx.fromId} in group ${ctx.chatId}: ${result.reason}`);
+            return;
+        }
+
+        // Strip mention prefix before sending to Hermes
+        const cleanText = stripMentionPrefix(normalized.text, this.acConfig);
+        if (cleanText !== normalized.text) {
+            normalized.text = cleanText;
+        }
+
+        this.emit("message", normalized);
     }
 
     private listenIPC() {
@@ -89,6 +162,48 @@ class ZaloWorker {
     private async handleMethod(method: string, params: any) {
         if (method === "zalo_action") {
             return await dispatch(params);
+        }
+
+        // Access control methods
+        if (method === "update_access_control") {
+            this.acConfig = parseAccessControlConfig(params);
+            if (!this.acConfig.botUserId) {
+                const uid = getCurrentUid();
+                if (uid) this.acConfig.botUserId = uid;
+            }
+            return getAccessControlStatus(this.acConfig);
+        }
+
+        if (method === "get_access_control_status") {
+            return getAccessControlStatus(this.acConfig);
+        }
+
+        if (method === "clear_access_control_caches") {
+            clearAllCaches();
+            return { cleared: true };
+        }
+
+        if (method === "check_access") {
+            return checkAccess(params, this.acConfig);
+        }
+
+        // Cache management
+        if (method === "cache_user_info") {
+            setCachedUserInfo(params.userId, params.data);
+            return { cached: true };
+        }
+
+        if (method === "cache_group_info") {
+            setCachedGroupInfo(params.groupId, params.data);
+            return { cached: true };
+        }
+
+        if (method === "get_cached_user_info") {
+            return getCachedUserInfo(params.userId);
+        }
+
+        if (method === "get_cached_group_info") {
+            return getCachedGroupInfo(params.groupId);
         }
         
         // Internal methods

@@ -12,6 +12,12 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import * as nodeOs from "node:os";
 import * as nodeCrypto from "node:crypto";
+import {
+    getCachedUserInfo,
+    setCachedUserInfo,
+    getCachedGroupInfo,
+    setCachedGroupInfo,
+} from "./access-control.js";
 
 // Helper for result formatting
 function ok(data: any) {
@@ -181,6 +187,44 @@ export async function dispatch(p: any): Promise<any> {
         case "me": {
             const me = await api.getUserInfo([api.getOwnId()]);
             return ok(me);
+        }
+
+        case "get-user-info": {
+            const userId = p.userId || p.threadId;
+            if (!userId) throw new Error("userId required");
+            
+            const cached = getCachedUserInfo(userId);
+            if (cached) return ok({ ...cached, cached: true });
+
+            const info: any = await api.getUserInfo([userId]);
+            if (info && info[userId]) {
+                setCachedUserInfo(userId, info[userId]);
+            }
+            return ok(info?.[userId]);
+        }
+
+        case "get-group-info": {
+            const gid = await resolveGroupId(p.groupId || p.threadId);
+            
+            const cached = getCachedGroupInfo(gid);
+            if (cached) return ok({ ...cached, cached: true });
+
+            const info = await api.getGroupInfo([gid]);
+            const groupData = info?.gridInfoMap?.[gid];
+            if (groupData) {
+                setCachedGroupInfo(gid, groupData);
+            }
+            return ok(groupData);
+        }
+
+        case "refresh-group-info": {
+            const gid = await resolveGroupId(p.groupId || p.threadId);
+            const info = await api.getGroupInfo([gid]);
+            const groupData = info?.gridInfoMap?.[gid];
+            if (groupData) {
+                setCachedGroupInfo(gid, groupData);
+            }
+            return ok(groupData);
         }
         
         default:
