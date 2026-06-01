@@ -1,0 +1,28 @@
+{
+  "name": "zalo-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Zalo Bridge Worker for Hermes Agent",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc -w"
+  },
+  "dependencies": {
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.33.0",
+    "zca-js": "^2.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/qrcode-terminal": "^0.12.2",
+    "@types/sharp": "^0.31.1",
+    "typescript": "^5.4.0"
+  }
+}

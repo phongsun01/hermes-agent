@@ -81,11 +81,12 @@ def _log_signal(signum: int, frame) -> None:
     thread, and fall back to ``os._exit(0)`` so a wedged write/flush
     can never strand the process.
     """
-    name = {
-        signal.SIGPIPE: "SIGPIPE",
-        signal.SIGTERM: "SIGTERM",
-        signal.SIGHUP: "SIGHUP",
-    }.get(signum, f"signal {signum}")
+    _sig_names = {signal.SIGTERM: "SIGTERM"}
+    if hasattr(signal, "SIGPIPE"):
+        _sig_names[signal.SIGPIPE] = "SIGPIPE"
+    if hasattr(signal, "SIGHUP"):
+        _sig_names[signal.SIGHUP] = "SIGHUP"
+    name = _sig_names.get(signum, f"signal {signum}")
     try:
         os.makedirs(os.path.dirname(_CRASH_LOG), exist_ok=True)
         with open(_CRASH_LOG, "a", encoding="utf-8") as f:
@@ -140,9 +141,12 @@ def _log_signal(signum: int, frame) -> None:
 # sys.exit(0) + _log_exit), which keeps the gateway alive as long as
 # the main command pipe is still readable.  Terminal signals still
 # route through _log_signal so kills and hangups are diagnosable.
-signal.signal(signal.SIGPIPE, signal.SIG_IGN)
-signal.signal(signal.SIGTERM, _log_signal)
-signal.signal(signal.SIGHUP, _log_signal)
+if hasattr(signal, "SIGPIPE"):
+    signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+if hasattr(signal, "SIGTERM"):
+    signal.signal(signal.SIGTERM, _log_signal)
+if hasattr(signal, "SIGHUP"):
+    signal.signal(signal.SIGHUP, _log_signal)
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
