@@ -158,6 +158,14 @@ RUN uv sync --frozen --no-install-project --extra all --extra messaging --extra 
 # .dockerignore excludes node_modules, so the installs above survive.
 COPY --chown=hermes:hermes . .
 
+# Install Zalo worker dependencies (zca-js, sharp, etc.)
+RUN if [ -f gateway/platforms/zalo/worker/package.json ]; then \
+        cd gateway/platforms/zalo/worker && \
+        npm install --prefer-offline --no-audit && \
+        npm run build && \
+        npm cache clean --force; \
+    fi
+
 # Build browser dashboard and terminal UI assets.
 RUN cd web && npm run build && \
     cd ../ui-tui && npm run build
@@ -249,6 +257,12 @@ ENV HERMES_HOME=/opt/data
 # absolute path (/opt/hermes/.venv/bin/hermes). See the shim source for
 # the opt-out env var (HERMES_DOCKER_EXEC_AS_ROOT=1).
 COPY --chmod=0755 docker/hermes-exec-shim.sh /opt/hermes/bin/hermes
+
+# Fix CRLF → LF for all s6-overlay scripts and docker entrypoints (Windows build context issue)
+RUN find /etc/s6-overlay/s6-rc.d /etc/cont-init.d -type f -exec sed -i 's/\r$//' {} + && \
+    sed -i 's/\r$//' /opt/hermes/docker/main-wrapper.sh && \
+    sed -i 's/\r$//' /opt/hermes/docker/stage2-hook.sh && \
+    sed -i 's/\r$//' /opt/hermes/bin/hermes
 
 # Pre-s6 entrypoint.sh did `source .venv/bin/activate` which exported
 # the venv bin onto PATH; Architecture B's main-wrapper.sh does the

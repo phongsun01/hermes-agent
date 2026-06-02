@@ -287,6 +287,7 @@ git commit -m "Merge upstream vX.Y.Z"
 git push origin main
 
 # 5. Build lại Docker
+cd D:\Antigravity\Hermes
 docker compose build
 docker compose up -d
 ```

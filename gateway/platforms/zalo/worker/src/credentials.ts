@@ -10,7 +10,22 @@ import { readFileSync, writeFileSync, unlinkSync, existsSync, chmodSync, mkdirSy
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 
-const CREDENTIALS_PATH = join(homedir(), ".hermes/data", "zaloclaw-credentials.json");
+/**
+ * Resolve the Hermes data directory.
+ *
+ * In Docker, HERMES_HOME=/opt/data is the mounted ~/.hermes volume.
+ * On bare metal, HERMES_HOME is typically unset — fall back to ~/.hermes.
+ */
+function getHermesDataDir(): string {
+    const hermesHome = process.env.HERMES_HOME;
+    if (hermesHome) {
+        return join(hermesHome, "data");
+    }
+    return join(homedir(), ".hermes", "data");
+}
+
+const DATA_DIR = getHermesDataDir();
+const CREDENTIALS_PATH = join(DATA_DIR, "zaloclaw-credentials.json");
 
 export type ZaloClawCredentials = {
   imei: string;

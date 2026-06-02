@@ -30,8 +30,14 @@ class ZaloWorker {
         try {
             if (hasCredentials()) {
                 console.error("⏳ Attempting to login with saved credentials...");
-                this.api = await loginWithCredentials();
-                console.error("✅ Logged in successfully!");
+                try {
+                    this.api = await loginWithCredentials();
+                    console.error("✅ Logged in successfully with saved credentials!");
+                } catch (err: any) {
+                    console.error(`⚠️ Saved credentials expired: ${err.message}`);
+                    console.error("🔑 Falling back to QR login...");
+                    await this.qrLogin();
+                }
             } else {
                 console.error("🔑 No credentials found, please scan QR code.");
                 await this.qrLogin();
@@ -68,6 +74,29 @@ class ZaloWorker {
             } catch (err: any) {
                 console.error("⚠️ Failed to parse ZALO_ACCESS_CONTROL:", err.message);
             }
+        } else {
+            // Read individual env vars (set in .env)
+            this.acConfig.dmPolicy = (process.env.ZALO_DM_POLICY || "open") as any;
+            this.acConfig.groupPolicy = (process.env.ZALO_GROUP_POLICY || "open") as any;
+            this.acConfig.requireMention = process.env.ZALO_REQUIRE_MENTION === "true";
+
+            const parseIds = (val?: string) => new Set((val || "").split(",").map(s => s.trim()).filter(Boolean));
+            this.acConfig.allowlistedUsers = parseIds(process.env.ZALO_ALLOWLISTED_USERS);
+            this.acConfig.denylistedUsers = parseIds(process.env.ZALO_DENYLISTED_USERS);
+            this.acConfig.allowlistedGroups = parseIds(process.env.ZALO_ALLOWLISTED_GROUPS);
+            this.acConfig.denylistedGroups = parseIds(process.env.ZALO_DENYLISTED_GROUPS);
+
+            if (process.env.ZALO_BOT_NAME) this.acConfig.botName = process.env.ZALO_BOT_NAME;
+
+            const patternsRaw = process.env.ZALO_MENTION_PATTERNS;
+            if (patternsRaw) {
+                try {
+                    const patterns: string[] = JSON.parse(patternsRaw);
+                    this.acConfig.mentionPatterns = patterns.map(p => {
+                        try { return new RegExp(p, "i"); } catch { return null; }
+                    }).filter(Boolean) as RegExp[];
+                } catch { /* ignore */ }
+            }
         }
 
         // Set bot identity for mention detection
@@ -93,15 +122,17 @@ class ZaloWorker {
     }
 
     private normalizeMessage(msg: any) {
-        const from_id = msg.uidFrom ?? msg.fromId ?? msg.senderId ?? msg.userId ?? null;
-        const chat_id = msg.threadId ?? msg.groupId ?? from_id;
+        // zca-js wraps message data inside msg.data — unwrap if needed
+        const inner = msg.data && typeof msg.data === 'object' ? msg.data : msg;
+        const from_id = inner.uidFrom ?? inner.fromId ?? inner.senderId ?? inner.userId ?? null;
+        const chat_id = msg.threadId ?? inner.threadId ?? inner.groupId ?? from_id;
         return {
             from_id: from_id !== null ? String(from_id) : null,
-            from_name: msg.dName ?? msg.fromName ?? msg.senderName ?? null,
+            from_name: inner.dName ?? inner.fromName ?? inner.senderName ?? null,
             chat_id: chat_id !== null ? String(chat_id) : null,
-            text: msg.content ?? msg.message ?? msg.text ?? "",
-            timestamp: msg.ts ?? Date.now(),
-            is_group: !!msg.groupId,
+            text: inner.content ?? inner.message ?? inner.text ?? "",
+            timestamp: inner.ts ?? Date.now(),
+            is_group: !!inner.groupId,
             raw: msg
         };
     }

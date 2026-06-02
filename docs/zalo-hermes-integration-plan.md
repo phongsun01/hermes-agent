@@ -894,3 +894,44 @@ Dưới đây là nhật ký các lỗi phát sinh thực tế trong quá trình
 * **Mô tả lỗi**: Subprocess trên Windows mặc định dùng bảng mã hệ thống (thường là cp1252), gây lỗi `UnicodeDecodeError` khi đọc stdout từ Node.js worker có chứa ký tự tiếng Việt hoặc Unicode.
 * **Giải pháp**: Cấu hình khởi chạy subprocess với `encoding='utf-8'` và `errors='replace'` để đảm bảo luồng đọc dữ liệu mượt mà, không bị gián đoạn.
 
+### 12.5. Sửa lỗi CRLF trong s6-overlay scripts (Docker build trên Windows)
+* **Mô tả lỗi**: Container crash ngay khi khởi động với lỗi `s6-rc-compile: fatal: invalid /etc/s6-overlay/s6-rc.d/dashboard/type: must be oneshot, longrun, or bundle` và `unable to exec sh\r: No such file or directory`.
+* **Nguyên nhân**: Git trên Windows tự động convert LF → CRLF cho tất cả file text. S6-overlay (Linux) không hiểu CRLF — giá trị `longrun\r` bị coi là invalid, shebang `#!/bin/sh\r` không tìm được interpreter.
+* **Giải pháp**:
+  - Thêm `RUN find /etc/s6-overlay/s6-rc.d /etc/cont-init.d -type f -exec sed -i 's/\r$//' {} +` vào Dockerfile sau khi COPY các file s6.
+  - Thêm `.gitattributes` với `docker/s6-rc.d/**/* text eol=lf` để Git không bao giờ convert các file này sang CRLF.
+  - Áp dụng tương tự cho `main-wrapper.sh`, `stage2-hook.sh`, `hermes-exec-shim.sh`.
+
+### 12.6. Sửa lỗi thiếu zca-js trong Docker image
+* **Mô tả lỗi**: Worker khởi động nhưng crash ngay với `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'zca-js'`.
+* **Nguyên nhân**: Dockerfile không có bước `npm install` cho `gateway/platforms/zalo/worker/`. `.dockerignore` loại bỏ `node_modules` nên worker không có dependencies.
+* **Giải pháp**: Thêm vào Dockerfile sau bước `COPY . .`:
+  ```dockerfile
+  RUN if [ -f gateway/platforms/zalo/worker/package.json ]; then \
+          cd gateway/platforms/zalo/worker && \
+          npm install --prefer-offline --no-audit && \
+          npm run build && \
+          npm cache clean --force; \
+      fi
+  ```
+
+### 12.7. Sửa lỗi worker không đọc được credentials trong Docker
+* **Mô tả lỗi**: Worker luôn hiện `🔑 No credentials found, please scan QR code` dù file `zaloclaw-credentials.json` đã tồn tại từ lần đăng nhập trước (ngày 20/5).
+* **Nguyên nhân**: `credentials.ts` dùng `join(homedir(), ".hermes/data", ...)` để xác định đường dẫn. Trong Docker, `homedir()` trả về path của user trong container (không phải `/opt/data`), trong khi volume `~/.hermes` của host được mount tại `/opt/data`. Worker tìm sai đường dẫn → không thấy credentials.
+* **Giải pháp**:
+  - Sửa `credentials.ts` dùng biến môi trường `HERMES_HOME` nếu có, fallback về `homedir()/.hermes`:
+    ```typescript
+    function getHermesDataDir(): string {
+        const hermesHome = process.env.HERMES_HOME;
+        if (hermesHome) return join(hermesHome, "data");
+        return join(homedir(), ".hermes", "data");
+    }
+    ```
+  - Sửa `zalo.py` (Python adapter) truyền `HERMES_HOME` vào environment của worker subprocess:
+    ```python
+    from hermes_constants import get_hermes_home
+    worker_env = os.environ.copy()
+    worker_env["HERMES_HOME"] = str(get_hermes_home())
+    self.worker = subprocess.Popen(..., env=worker_env)
+    ```
+

@@ -257,7 +257,28 @@ class ZaloAdapter(BasePlatformAdapter):
             return False
 
         logger.info(f"[Zalo] Starting worker process: node {self.worker_script}")
-        
+
+        # Pass HERMES_HOME + Zalo access control env vars to worker
+        from hermes_constants import get_hermes_home
+        worker_env = os.environ.copy()
+        worker_env["HERMES_HOME"] = str(get_hermes_home())
+
+        # Pass access control config from .env or config.yaml extra
+        ac_vars = {
+            "ZALO_DM_POLICY": self.config.extra.get("dm_policy"),
+            "ZALO_GROUP_POLICY": self.config.extra.get("group_policy"),
+            "ZALO_REQUIRE_MENTION": str(self.config.extra.get("require_mention")).lower() if self.config.extra.get("require_mention") is not None else None,
+            "ZALO_ALLOWLISTED_USERS": self._format_id_list("allowlisted_users"),
+            "ZALO_DENYLISTED_USERS": self._format_id_list("denylisted_users"),
+            "ZALO_ALLOWLISTED_GROUPS": self._format_id_list("allowlisted_groups"),
+            "ZALO_DENYLISTED_GROUPS": self._format_id_list("denylisted_groups"),
+            "ZALO_BOT_NAME": self.config.extra.get("bot_name"),
+            "ZALO_BOT_USER_ID": self.config.extra.get("bot_user_id"),
+        }
+        for key, val in ac_vars.items():
+            if val:
+                worker_env[key] = val
+
         try:
             self.worker = subprocess.Popen(
                 ["node", str(self.worker_script)],
@@ -268,7 +289,8 @@ class ZaloAdapter(BasePlatformAdapter):
                 encoding="utf-8",
                 errors="replace",
                 bufsize=1,
-                cwd=str(self.worker_dir)
+                cwd=str(self.worker_dir),
+                env=worker_env
             )
             
             # Thread to read stdout
@@ -284,6 +306,19 @@ class ZaloAdapter(BasePlatformAdapter):
         except Exception as e:
             logger.error(f"[Zalo] Failed to start worker: {e}")
             return False
+
+    def _format_id_list(self, key: str) -> str:
+        """Format an ID set as comma-separated string for env var."""
+        # Read from config.extra first (works in Docker), fallback to self.ac
+        val = self.config.extra.get(key)
+        if isinstance(val, list):
+            return ",".join(str(x).strip() for x in val if str(x).strip())
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        id_set = getattr(self.ac, f"{key}", set())
+        if isinstance(id_set, set):
+            return ",".join(sorted(id_set)) if id_set else ""
+        return ""
 
     async def disconnect(self):
         """Stop the worker subprocess."""

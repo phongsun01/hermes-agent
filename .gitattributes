@@ -1,2 +1,9 @@
 # Auto-generated files — collapse diffs and exclude from language stats
 web/package-lock.json linguist-generated=true
+
+# s6-overlay service configs must use LF line endings (Linux-only)
+docker/s6-rc.d/**/* text eol=lf
+docker/cont-init.d/**/* text eol=lf
+docker/entrypoint.sh text eol=lf
+docker/stage2-hook.sh text eol=lf
+docker/main-wrapper.sh text eol=lf
