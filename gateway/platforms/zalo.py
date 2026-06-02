@@ -429,6 +429,16 @@ class ZaloAdapter(BasePlatformAdapter):
             )
             logger.info(f"[Zalo] Inbound message from {event.source.user_id}: {event.text[:80]}")
             print(f"[Zalo] 📨 Message from {event.source.user_name}: {event.text[:60]}", flush=True)
+
+            # Auto-detect and echo back image URLs from user messages
+            image_urls = self._extract_image_urls(text)
+            if image_urls:
+                for img_url in image_urls:
+                    asyncio.create_task(self._send_image_async(chat_id, img_url, is_group))
+
+            # Send typing indicator before processing
+            asyncio.create_task(self._send_typing_async(chat_id, is_group))
+
             # Dispatch via BasePlatformAdapter standard pipeline
             asyncio.create_task(self.handle_message(event))
         except Exception as e:
@@ -622,22 +632,95 @@ class ZaloAdapter(BasePlatformAdapter):
                 is_group = True
             elif chat_id.startswith("g"): # Heuristic for Zalo group IDs
                 is_group = True
-            
-            params = {
-                "action": "send",
-                "threadId": chat_id,
-                "message": content,
-                "isGroup": is_group
-            }
-            if reply_to:
-                params["replyTo"] = reply_to
 
-            result = await self._call_worker("zalo_action", params)
-            
-            return SendResult(success=True, message_id=result.get("msgId") if result else None)
+            # Auto-detect image URLs in content and send as images
+            image_urls = self._extract_image_urls(content)
+            if image_urls:
+                # Send images first
+                for img_url in image_urls:
+                    await self.send_image(chat_id, image_url=img_url, is_group=is_group)
+                # Send remaining text (with image URLs removed)
+                clean_text = self._remove_image_urls(content)
+                if clean_text.strip():
+                    params = {
+                        "action": "send",
+                        "threadId": chat_id,
+                        "message": clean_text.strip(),
+                        "isGroup": is_group
+                    }
+                    if reply_to:
+                        params["replyTo"] = reply_to
+                    result = await self._call_worker("zalo_action", params)
+                    return SendResult(success=True, message_id=result.get("msgId") if result else None)
+                return SendResult(success=True)
+            else:
+                params = {
+                    "action": "send",
+                    "threadId": chat_id,
+                    "message": content,
+                    "isGroup": is_group
+                }
+                if reply_to:
+                    params["replyTo"] = reply_to
+
+                result = await self._call_worker("zalo_action", params)
+                
+                return SendResult(success=True, message_id=result.get("msgId") if result else None)
         except Exception as e:
             logger.error(f"[Zalo] Failed to send message: {e}")
             return SendResult(success=False, error=str(e))
+
+    def _extract_image_urls(self, text: str) -> list:
+        """Extract image URLs from text content."""
+        urls = []
+        
+        # Match markdown images: ![alt](url)
+        md_pattern = re.compile(r'!\[[^\]]*\]\((https?://[^\s)]+\.(?:jpg|jpeg|png|gif|webp|avif|bmp)(?:\?[^\s)]*)?)\)', re.IGNORECASE)
+        for m in md_pattern.finditer(text):
+            urls.append(m.group(1))
+        
+        # Match plain image URLs (standalone URLs ending in image extensions)
+        plain_pattern = re.compile(r'(https?://[^\s]+\.(?:jpg|jpeg|png|gif|webp|avif|bmp)(?:\?[^\s]*)?)', re.IGNORECASE)
+        for m in plain_pattern.finditer(text):
+            url = m.group(1)
+            if url not in urls:
+                urls.append(url)
+        
+        return urls
+
+    def _remove_image_urls(self, text: str) -> str:
+        """Remove image URLs from text, leaving surrounding text."""
+        # Remove markdown images
+        text = re.sub(r'!\[[^\]]*\]\(https?://[^\s)]+\)', '', text)
+        # Remove standalone image URLs
+        text = re.sub(r'https?://[^\s]+\.(?:jpg|jpeg|png|gif|webp|avif|bmp)(?:\?[^\s]*)?', '', text, flags=re.IGNORECASE)
+        # Clean up extra whitespace
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+    async def _send_image_async(self, chat_id: str, url: str, is_group: bool = False) -> None:
+        """Async wrapper to send an image URL back to the user."""
+        try:
+            logger.info(f"[Zalo] Auto-echoing image URL: {url[:80]}...")
+            print(f"[Zalo] 🖼️ Sending image: {url[:60]}...", flush=True)
+            result = await self.send_image(chat_id, image_url=url, is_group=is_group)
+            if result.success:
+                logger.info(f"[Zalo] Image sent successfully: {url[:80]}")
+            else:
+                logger.warning(f"[Zalo] Failed to send image: {result.error}")
+        except Exception as e:
+            logger.error(f"[Zalo] Error sending auto-echoed image: {e}", exc_info=True)
+
+    async def _send_typing_async(self, chat_id: str, is_group: bool = False) -> None:
+        """Send typing indicator to user."""
+        try:
+            await self._call_worker("zalo_action", {
+                "action": "send-typing",
+                "threadId": chat_id,
+                "isGroup": is_group,
+            })
+        except Exception as e:
+            logger.debug(f"[Zalo] Failed to send typing indicator: {e}")
 
     async def send_image(
         self,

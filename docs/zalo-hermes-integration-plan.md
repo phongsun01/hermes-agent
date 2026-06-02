@@ -565,6 +565,17 @@ npm run build  # TypeScript → dist/
 - [x] Media cache management IPC actions
   - `cache-media`, `get-cached-media`, `cleanup-media-cache`, `clear-media-cache`
   - `format-message`, `detect-media`
+- [x] **Full zaloclaw action dispatch (142 actions)**
+  - Messaging (16): send, send-styled, send-link, send-image, send-file, send-video, send-voice, send-sticker, send-card, send-bank-card, send-typing, send-to-stranger, forward-message, delete-message, undo-message, add-reaction
+  - Friends (12): friends, find-user, find-user-by-username, send-friend-request, get-friend-requests, accept-friend-request, reject-friend-request, get-sent-requests, undo-friend-request, unfriend, check-friend-status, set-friend-nickname, remove-friend-nickname, get-online-friends
+  - Groups (36): create-group, add-members, remove-members, change-group-name, change-group-avatar, disband-group, leave-group, get-group-info, change-group-owner, approve-join-request, get-join-requests, block-member, unblock-member, get-blocked-members, get-pending-members, get-group-settings, update-group-settings, create-poll, get-polls, vote-poll, close-poll, end-poll, reset-poll, get-poll-info, add-admin, remove-admin, get-admins, get-members, get-invite-link, revoke-invite-link, search-group, get-group-avatar-list, delete-group-avatar, get-group-board-list, create-group-board, delete-group-board
+  - Polls (4): create-poll, get-polls, vote-poll, close-poll
+  - Reminders (3): create-reminder, get-reminders, delete-reminder
+  - Conversations (8): pin-conversation, unpin-conversation, get-pin-conversations, archive-chat, unarchive-chat, update-archived-chat-list, mute-chat, unmute-chat
+  - Settings/Profile (15): get-own-info, get-profile, change-profile, change-avatar, delete-avatar, get-avatar-list, get-qr, get-biz-account, get-friend-board-list, get-list-board, create-product-catalog, update-product-catalog, delete-product-catalog, get-quick-messages, add-quick-message, delete-quick-message
+  - Media/Utility (8): format-message, detect-media, cache-media, get-cached-media, cleanup-media-cache, clear-media-cache, get-user-info, get-group-info
+- [x] `send-typing` trigger before agent response
+- [x] Auto-echo image URLs detected in inbound user messages
 
 **Deliverable đạt được:**
 - Gửi/nhận ảnh, file, video từ URL hoặc local path
@@ -572,6 +583,9 @@ npm run build  # TypeScript → dist/
 - Auto-truncate message > 2000 ký tự
 - Received media tự động cache vào `~/.hermes/data/zalo-media-cache/`
 - Cache cleanup (TTL 1 giờ, manual clear)
+- 142 zaloclaw actions dispatch qua IPC
+- Typing indicator tự động trigger
+- Auto-echo image URLs từ tin nhắn người dùng
 
 ---
 

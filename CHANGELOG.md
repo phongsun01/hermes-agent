@@ -9,7 +9,10 @@
 - **Received Media Caching** — Auto-detect and cache incoming media (image/file/video) with 1-hour TTL
 - **Media Cache Management** — `cache_media`, `get_cached_media`, `cleanup_media_cache`, `clear_media_cache`
 - **`cache_image_from_bytes()`** — Python adapter method for Hermes image caching integration
+- **`send-typing` trigger** — Auto-trigger typing indicator before agent responds
+- **Auto-echo image URLs** — Detect image URLs in inbound messages and echo before agent processing
 - **New module** — `gateway/platforms/zalo/worker/src/media.ts` (formatting, caching, download, detection)
+- **Full zaloclaw action dispatch (142 actions)** — All messaging, friends, groups, polls, reminders, conversations, settings, and profile actions wired to `zca-js` v2.1.2 API
 
 ### Added (Phase 1–4)
 - **Zalo Platform Adapter** (`gateway/platforms/zalo.py`) — Python adapter using Node.js subprocess worker with JSON-RPC IPC
@@ -27,6 +30,8 @@
 - **Message parsing** — zca-js wraps message payload in `msg.data`; worker now unwraps before extracting `uidFrom`, `dName`, `content`
 - **Expired credentials fallback** — Worker now falls back to QR login when saved cookies expire instead of crashing
 - **Access control env var passing** — Python adapter now explicitly passes `ZALO_DM_POLICY`, `ZALO_GROUP_POLICY`, `ZALO_ALLOWLISTED_USERS`, etc. to worker subprocess
+- **Docker gateway startup loop** — Container CMD must be `hermes gateway` (not bare `hermes`) to run gateway mode; bare `hermes` starts interactive CLI which exits without terminal
+- **TypeScript API signature mismatches** — Fixed 10+ `zca-js` v2.1.2 API call signatures in `actions.ts` (`deleteChat`, `addQuickMessage`, `updateArchivedChatList`, `deleteProductCatalog`, `getMute`, `getBizAccount`, `getFriendBoardList`, `updateCatalog`, `getListReminder`)
 
 ### Configuration
 ```yaml
@@ -44,12 +49,16 @@ zalo:
 ### Files Changed
 | File | Description |
 |------|-------------|
-| `Dockerfile` | CRLF fix, Zalo worker npm install |
+| `Dockerfile` | CRLF fix, Zalo worker npm install, gateway mode CMD |
 | `.gitattributes` | Force LF for docker/ scripts |
-| `gateway/platforms/zalo.py` | Python adapter with access control |
-| `gateway/platforms/zalo/worker/src/index.ts` | Worker with AC, message unwrapping, QR fallback |
+| `gateway/platforms/zalo.py` | Python adapter with access control, media send, auto-echo, typing |
+| `gateway/platforms/zalo/worker/src/index.ts` | Worker with AC, message unwrapping, QR fallback, media events |
 | `gateway/platforms/zalo/worker/src/credentials.ts` | HERMES_HOME-aware credential paths |
 | `gateway/platforms/zalo/worker/src/access-control.ts` | Access control module (new) |
-| `gateway/platforms/zalo/worker/src/actions.ts` | User/group info actions with caching |
+| `gateway/platforms/zalo/worker/src/actions.ts` | Full 142-action dispatch with zca-js v2.1.2 signatures |
+| `gateway/platforms/zalo/worker/src/media.ts` | Media formatting, caching, download, detection (new) |
 | `gateway/config.py` | Platform.ZALO enum member |
 | `gateway/run.py` | Zalo adapter registration |
+| `docs/zalo-hermes-integration-plan.md` | Updated Phase 2 status with full action list |
+| `docs/zaloclaw-progress-log.md` | Updated progress to 90% |
+| `CHANGELOG.md` | This file |

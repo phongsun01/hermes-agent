@@ -3,8 +3,8 @@
 Tài liệu này theo dõi chi tiết các công việc đã thực hiện và kế hoạch tiếp theo cho việc tích hợp Zalo, bám sát theo roadmap trong `zalo-hermes-integration-plan.md`.
 
 ## 📈 Trạng Thái Tổng Quát
-- **Tiến độ:** ~85% (Phase 1-4 cơ bản đã xong)
-- **Trạng thái:** Đã build thành công Worker và đăng ký Adapter vào lõi Hermes. Sẵn sàng cho việc quét mã QR và test thực tế.
+- **Tiến độ:** ~90% (Phase 1-4 hoàn thành, 142/147 actions hoạt động)
+- **Trạng thái:** Gateway đang chạy ổn định, Zalo worker kết nối thành công, access control hoạt động. Sẵn sàng test media và actions nâng cao.
 
 ---
 
@@ -18,12 +18,15 @@ Tài liệu này theo dõi chi tiết các công việc đã thực hiện và k
 - [x] Viết Python Adapter xử lý quản lý subprocess
 - [x] Xử lý lỗi cơ bản và ghi log
 
-### Phase 2: Rich Messages & Media (Hoàn thành: 90%)
-- [x] Worker: Triển khai các handler cho media (hình ảnh, file)
+### Phase 2: Rich Messages & Media (Hoàn thành: 100%)
+- [x] Worker: Triển khai các handler cho media (hình ảnh, file, video)
 - [x] Worker: Tự động tải media từ URL trước khi gửi (để Zalo hiển thị đúng)
 - [x] Adapter Python: Tích hợp gửi ảnh và file qua subprocess
-- [ ] Định dạng tin nhắn: Chuyển đổi Markdown sang Zalo Styled Text (Đang dùng text thuần)
-- [x] Xử lý giới hạn độ dài tin nhắn (thông qua zca-js)
+- [x] Định dạng tin nhắn: Chuyển đổi Markdown sang Zalo Styled Text (`formatMarkdownToZalo`)
+- [x] Xử lý giới hạn độ dài tin nhắn (auto-truncate > 2000 ký tự)
+- [x] Received media detection và caching (TTL 1 giờ)
+- [x] `send-typing` trigger trước khi agent phản hồi
+- [x] Auto-echo image URLs từ tin nhắn người dùng
 
 ### Phase 3: Session & Auth (Hoàn thành: 100%)
 - [x] Luồng đăng nhập mã QR: Hiển thị URL trong terminal
@@ -31,17 +34,20 @@ Tài liệu này theo dõi chi tiết các công việc đã thực hiện và k
 - [x] Lưu trữ session: Tự động lưu/tải cookie vào `~/.hermes/data/zalo_session.json`
 - [x] Cơ chế tự động kết nối lại khi restart gateway
 
-### Phase 4: Access Control & Groups (Hoàn thành: 80%)
+### Phase 4: Access Control & Groups (Hoàn thành: 100%)
 - [x] Tích hợp với hệ thống allowlist/denylist của Hermes (`ZALO_ALLOWED_USERS`)
 - [x] Nhận diện tin nhắn nhóm và cá nhân
 - [x] Triển khai các action cơ bản cho nhóm (Lấy thông tin nhóm, danh sách bạn bè)
-- [ ] Chế độ chỉ phản hồi khi được mention trong nhóm (`requireMention`)
+- [x] Chế độ chỉ phản hồi khi được mention trong nhóm (`require_mention: true`)
+- [x] DM policy (allowlist), Group policy (closed), mention detection
+- [x] User/group info caching với TTL
 
 ### Phase 5: Advanced Features & Finalization (Tiếp theo)
 - [ ] Hỗ trợ tool `send_message` đa nền tảng
 - [ ] Tích hợp gửi tin nhắn định kỳ (Cron)
 - [ ] Cơ chế Rate limiting để tránh bị Zalo khóa tài khoản
-- [ ] Hoàn thiện các hành động nâng cao từ zaloclaw (147 actions)
+- [x] Hoàn thiện 142/147 hành động từ zaloclaw (messaging, friends, groups, polls, reminders, conversations, settings, profile)
+- [ ] Test và xác minh 5 actions còn lại còn thiếu
 - [ ] Tài liệu hướng dẫn sử dụng cho người dùng cuối
 
 ---
