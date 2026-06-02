@@ -380,6 +380,8 @@ class ZaloAdapter(BasePlatformAdapter):
             self._on_message(payload)
         elif event_type == "qr_code":
             self._on_qr_code(payload)
+        elif event_type == "media_received":
+            self._on_media_received(payload)
 
     def _on_message(self, data: dict):
         """Handle incoming message from Zalo."""
@@ -478,6 +480,26 @@ class ZaloAdapter(BasePlatformAdapter):
 
         except Exception as e:
             logger.error(f"[Zalo] Failed to save QR code: {e}")
+
+    def _on_media_received(self, data: dict):
+        """Handle received media event."""
+        try:
+            media_type = data.get("type", "unknown")
+            url = data.get("url", "")
+            local_path = data.get("local_path", "")
+            thread_id = data.get("thread_id", "")
+            
+            logger.info(f"[Zalo] Received {media_type} media: {url[:80]} → {local_path}")
+            print(f"[Zalo] 📎 Received {media_type}: {local_path}", flush=True)
+            
+            # Cache the media locally for potential use by the agent
+            if local_path and Path(local_path).exists():
+                self.cache_image_from_bytes(
+                    Path(local_path).read_bytes(),
+                    filename=f"{media_type}_{thread_id}_{Path(local_path).name}"
+                )
+        except Exception as e:
+            logger.error(f"[Zalo] Error handling received media: {e}", exc_info=True)
 
     async def _call_worker(self, method: str, params: dict) -> Any:
         """Call a method on the Node.js worker and wait for response."""
@@ -616,6 +638,196 @@ class ZaloAdapter(BasePlatformAdapter):
         except Exception as e:
             logger.error(f"[Zalo] Failed to send message: {e}")
             return SendResult(success=False, error=str(e))
+
+    async def send_image(
+        self,
+        chat_id: str,
+        image_url: Optional[str] = None,
+        image_path: Optional[str] = None,
+        caption: Optional[str] = None,
+        reply_to: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> SendResult:
+        """Send an image via Zalo."""
+        try:
+            is_group = self._is_group_chat(chat_id, metadata)
+            
+            params = {
+                "action": "send-image",
+                "threadId": chat_id,
+                "isGroup": is_group,
+            }
+            if image_url:
+                params["url"] = image_url
+            if image_path:
+                params["filePath"] = image_path
+            if caption:
+                params["message"] = caption
+            if reply_to:
+                params["replyTo"] = reply_to
+
+            result = await self._call_worker("zalo_action", params)
+            return SendResult(success=True, message_id=result.get("msgId") if result else None)
+        except Exception as e:
+            logger.error(f"[Zalo] Failed to send image: {e}")
+            return SendResult(success=False, error=str(e))
+
+    async def send_file(
+        self,
+        chat_id: str,
+        file_url: Optional[str] = None,
+        file_path: Optional[str] = None,
+        caption: Optional[str] = None,
+        reply_to: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> SendResult:
+        """Send a file via Zalo."""
+        try:
+            is_group = self._is_group_chat(chat_id, metadata)
+            
+            params = {
+                "action": "send-file",
+                "threadId": chat_id,
+                "isGroup": is_group,
+            }
+            if file_url:
+                params["url"] = file_url
+            if file_path:
+                params["filePath"] = file_path
+            if caption:
+                params["message"] = caption
+            if reply_to:
+                params["replyTo"] = reply_to
+
+            result = await self._call_worker("zalo_action", params)
+            return SendResult(success=True, message_id=result.get("msgId") if result else None)
+        except Exception as e:
+            logger.error(f"[Zalo] Failed to send file: {e}")
+            return SendResult(success=False, error=str(e))
+
+    async def send_video(
+        self,
+        chat_id: str,
+        video_url: Optional[str] = None,
+        video_path: Optional[str] = None,
+        caption: Optional[str] = None,
+        reply_to: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> SendResult:
+        """Send a video via Zalo."""
+        try:
+            is_group = self._is_group_chat(chat_id, metadata)
+            
+            params = {
+                "action": "send-video",
+                "threadId": chat_id,
+                "isGroup": is_group,
+            }
+            if video_url:
+                params["url"] = video_url
+            if video_path:
+                params["filePath"] = video_path
+            if caption:
+                params["message"] = caption
+            if reply_to:
+                params["replyTo"] = reply_to
+
+            result = await self._call_worker("zalo_action", params)
+            return SendResult(success=True, message_id=result.get("msgId") if result else None)
+        except Exception as e:
+            logger.error(f"[Zalo] Failed to send video: {e}")
+            return SendResult(success=False, error=str(e))
+
+    async def format_message(self, text: str, format_markdown: bool = True) -> dict:
+        """Format a message for Zalo (markdown conversion + truncation)."""
+        try:
+            result = await self._call_worker("zalo_action", {
+                "action": "format-message",
+                "text": text,
+                "formatMarkdown": format_markdown,
+            })
+            return result or {"text": text, "truncated": False}
+        except Exception as e:
+            logger.warning(f"[Zalo] Failed to format message: {e}")
+            return {"text": text, "truncated": False}
+
+    async def cache_media(self, url: str, ext: str = "bin") -> dict:
+        """Download and cache media from a URL."""
+        try:
+            result = await self._call_worker("zalo_action", {
+                "action": "cache-media",
+                "url": url,
+                "ext": ext,
+            })
+            return result or {}
+        except Exception as e:
+            logger.error(f"[Zalo] Failed to cache media: {e}")
+            return {}
+
+    async def get_cached_media(self, url: str, ext: str = "bin") -> Optional[str]:
+        """Get the local path of cached media."""
+        try:
+            result = await self._call_worker("zalo_action", {
+                "action": "get-cached-media",
+                "url": url,
+                "ext": ext,
+            })
+            if result and result.get("cached"):
+                return result.get("localPath")
+            return None
+        except Exception as e:
+            logger.debug(f"[Zalo] Failed to get cached media: {e}")
+            return None
+
+    async def cleanup_media_cache(self) -> int:
+        """Clean up expired media cache entries."""
+        try:
+            result = await self._call_worker("zalo_action", {
+                "action": "cleanup-media-cache",
+            })
+            return result.get("cleaned", 0) if result else 0
+        except Exception as e:
+            logger.warning(f"[Zalo] Failed to cleanup media cache: {e}")
+            return 0
+
+    async def clear_media_cache(self) -> bool:
+        """Clear all media cache entries."""
+        try:
+            await self._call_worker("zalo_action", {
+                "action": "clear-media-cache",
+            })
+            return True
+        except Exception as e:
+            logger.warning(f"[Zalo] Failed to clear media cache: {e}")
+            return False
+
+    def cache_image_from_bytes(self, image_data: bytes, filename: str = "image.png") -> str:
+        """Cache an image from bytes and return a local path.
+        
+        This is used by Hermes' built-in image caching system.
+        """
+        from hermes_constants import get_hermes_home
+        
+        cache_dir = Path(get_hermes_home()) / "data" / "zalo-media-cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate a unique filename
+        import hashlib
+        hash_val = hashlib.md5(image_data).hexdigest()[:12]
+        local_path = cache_dir / f"{hash_val}_{filename}"
+        
+        local_path.write_bytes(image_data)
+        logger.debug(f"[Zalo] Cached image to {local_path}")
+        return str(local_path)
+
+    def _is_group_chat(self, chat_id: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """Determine if a chat ID represents a group."""
+        if metadata and metadata.get("is_group"):
+            return True
+        # Heuristic: Zalo group IDs often start with 'g' or contain specific patterns
+        if chat_id.startswith("g"):
+            return True
+        return False
 
 def check_zalo_requirements() -> bool:
     """Check if Node.js is available."""

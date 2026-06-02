@@ -4,6 +4,7 @@ import { loginWithQR, loginWithCredentials, getCurrentUid } from "./client.js";
 import { hasCredentials } from "./credentials.js";
 import { dispatch } from "./actions.js";
 import { parseAccessControlConfig, checkAccess, stripMentionPrefix, AccessDecision, getAccessControlStatus, setCachedUserInfo, setCachedGroupInfo, getCachedUserInfo, getCachedGroupInfo, clearAllCaches, } from "./access-control.js";
+import { detectReceivedMedia, downloadAndCacheMedia, } from "./media.js";
 class ZaloWorker {
     api = null;
     acConfig = { ...parseAccessControlConfig({}) };
@@ -12,8 +13,15 @@ class ZaloWorker {
         try {
             if (hasCredentials()) {
                 console.error("⏳ Attempting to login with saved credentials...");
-                this.api = await loginWithCredentials();
-                console.error("✅ Logged in successfully!");
+                try {
+                    this.api = await loginWithCredentials();
+                    console.error("✅ Logged in successfully with saved credentials!");
+                }
+                catch (err) {
+                    console.error(`⚠️ Saved credentials expired: ${err.message}`);
+                    console.error("🔑 Falling back to QR login...");
+                    await this.qrLogin();
+                }
             }
             else {
                 console.error("🔑 No credentials found, please scan QR code.");
@@ -22,9 +30,28 @@ class ZaloWorker {
             // Load access control config from environment or file
             this.loadAccessControlConfig();
             // Start listener
-            this.api.listener.on("message", (msg) => {
+            this.api.listener.on("message", async (msg) => {
                 const normalized = this.normalizeMessage(msg);
                 this.handleIncomingMessage(normalized);
+                // Check for media attachments in received messages
+                const raw = msg.data || msg;
+                const mediaInfo = detectReceivedMedia(raw);
+                if (mediaInfo && mediaInfo.url) {
+                    try {
+                        const localPath = await downloadAndCacheMedia(mediaInfo.url, this.getExtForMediaType(mediaInfo.type));
+                        this.emit("media_received", {
+                            type: mediaInfo.type,
+                            url: mediaInfo.url,
+                            local_path: localPath,
+                            mime_type: mediaInfo.mimeType,
+                            file_name: mediaInfo.fileName,
+                            thread_id: msg.threadId,
+                        });
+                    }
+                    catch (err) {
+                        console.error(`⚠️ Failed to cache received media: ${err.message}`);
+                    }
+                }
             });
             this.api.listener.start();
             console.error("👂 Listening for Zalo messages...");
@@ -48,6 +75,34 @@ class ZaloWorker {
                 console.error("⚠️ Failed to parse ZALO_ACCESS_CONTROL:", err.message);
             }
         }
+        else {
+            // Read individual env vars (set in .env)
+            this.acConfig.dmPolicy = (process.env.ZALO_DM_POLICY || "open");
+            this.acConfig.groupPolicy = (process.env.ZALO_GROUP_POLICY || "open");
+            this.acConfig.requireMention = process.env.ZALO_REQUIRE_MENTION === "true";
+            const parseIds = (val) => new Set((val || "").split(",").map(s => s.trim()).filter(Boolean));
+            this.acConfig.allowlistedUsers = parseIds(process.env.ZALO_ALLOWLISTED_USERS);
+            this.acConfig.denylistedUsers = parseIds(process.env.ZALO_DENYLISTED_USERS);
+            this.acConfig.allowlistedGroups = parseIds(process.env.ZALO_ALLOWLISTED_GROUPS);
+            this.acConfig.denylistedGroups = parseIds(process.env.ZALO_DENYLISTED_GROUPS);
+            if (process.env.ZALO_BOT_NAME)
+                this.acConfig.botName = process.env.ZALO_BOT_NAME;
+            const patternsRaw = process.env.ZALO_MENTION_PATTERNS;
+            if (patternsRaw) {
+                try {
+                    const patterns = JSON.parse(patternsRaw);
+                    this.acConfig.mentionPatterns = patterns.map(p => {
+                        try {
+                            return new RegExp(p, "i");
+                        }
+                        catch {
+                            return null;
+                        }
+                    }).filter(Boolean);
+                }
+                catch { /* ignore */ }
+            }
+        }
         // Set bot identity for mention detection
         if (!this.acConfig.botUserId) {
             const uid = getCurrentUid();
@@ -68,17 +123,35 @@ class ZaloWorker {
         console.error("✅ QR Login successful!");
     }
     normalizeMessage(msg) {
-        const from_id = msg.uidFrom ?? msg.fromId ?? msg.senderId ?? msg.userId ?? null;
-        const chat_id = msg.threadId ?? msg.groupId ?? from_id;
+        // zca-js wraps message data inside msg.data — unwrap if needed
+        const inner = msg.data && typeof msg.data === 'object' ? msg.data : msg;
+        const from_id = inner.uidFrom ?? inner.fromId ?? inner.senderId ?? inner.userId ?? null;
+        const chat_id = msg.threadId ?? inner.threadId ?? inner.groupId ?? from_id;
         return {
             from_id: from_id !== null ? String(from_id) : null,
-            from_name: msg.dName ?? msg.fromName ?? msg.senderName ?? null,
+            from_name: inner.dName ?? inner.fromName ?? inner.senderName ?? null,
             chat_id: chat_id !== null ? String(chat_id) : null,
-            text: msg.content ?? msg.message ?? msg.text ?? "",
-            timestamp: msg.ts ?? Date.now(),
-            is_group: !!msg.groupId,
+            text: inner.content ?? inner.message ?? inner.text ?? "",
+            timestamp: inner.ts ?? Date.now(),
+            is_group: !!inner.groupId,
             raw: msg
         };
+    }
+    getExtForMediaType(type) {
+        switch (type.toLowerCase()) {
+            case "image":
+            case "photo":
+                return "jpg";
+            case "video":
+                return "mp4";
+            case "audio":
+                return "mp3";
+            case "file":
+            case "document":
+                return "bin";
+            default:
+                return "bin";
+        }
     }
     handleIncomingMessage(normalized) {
         const ctx = {

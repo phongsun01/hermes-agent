@@ -2,7 +2,16 @@
 
 ## [Unreleased] — Zalo Platform Integration
 
-### Added
+### Added (Phase 2: Rich Messages & Media — 2026-06-02)
+- **Media Handlers** — `send_image`, `send_file`, `send_video` actions in worker (URL + local path)
+- **Message Formatting** — Markdown → Zalo HTML conversion (bold, italic, strikethrough, underline, code, links)
+- **Auto-Truncate** — Messages > 2000 chars auto-truncated at word boundary
+- **Received Media Caching** — Auto-detect and cache incoming media (image/file/video) with 1-hour TTL
+- **Media Cache Management** — `cache_media`, `get_cached_media`, `cleanup_media_cache`, `clear_media_cache`
+- **`cache_image_from_bytes()`** — Python adapter method for Hermes image caching integration
+- **New module** — `gateway/platforms/zalo/worker/src/media.ts` (formatting, caching, download, detection)
+
+### Added (Phase 1–4)
 - **Zalo Platform Adapter** (`gateway/platforms/zalo.py`) — Python adapter using Node.js subprocess worker with JSON-RPC IPC
 - **Zalo Worker** (`gateway/platforms/zalo/worker/`) — TypeScript worker using `zca-js` for Zalo API communication
 - **QR Login** — Automatic QR code generation and session persistence at `~/.hermes/data/zaloclaw-credentials.json`

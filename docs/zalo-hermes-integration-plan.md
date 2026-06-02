@@ -545,22 +545,33 @@ npm run build  # TypeScript → dist/
 
 ---
 
-### Phase 2: Rich Messages & Media ⏳ CHƯA BẮT ĐẦU
+### Phase 2: Rich Messages & Media ✅ HOÀN THÀNH
 
-**Tasks cần làm:**
-1. Worker: Implement media handlers
-   - send_image (từ URL + local path) — đã có hàm cơ bản, cần hoàn thiện
-   - send_file, send_video
-   - Download và cache received media
-2. Adapter: Media caching integration
-   - `cache_image_from_bytes()`
-3. Message formatting
-   - Markdown → Zalo styled text conversion
-   - Handle max message length (Zalo giới hạn ~2000 ký tự)
+**Đã thực hiện:**
+- [x] Worker: Implement media handlers
+  - [x] send_image (từ URL + local path) — hoàn thiện với `resolveMediaSource`
+  - [x] send_file — hoàn thiện với auto-download + cleanup
+  - [x] send_video — mới, hỗ trợ URL và local file
+  - [x] Download và cache received media — `downloadAndCacheMedia`, TTL 1 giờ
+- [x] Adapter: Media caching integration
+  - [x] `cache_image_from_bytes()` — lưu vào `~/.hermes/data/zalo-media-cache/`
+  - [x] `send_image`, `send_file`, `send_video` methods
+  - [x] `cache_media`, `get_cached_media`, `cleanup_media_cache`, `clear_media_cache`
+- [x] Message formatting
+  - [x] Markdown → Zalo styled text conversion (`formatMarkdownToZalo`)
+    - Bold (`**text**` → `<b>text</b>`), Italic, Strikethrough, Underline, Code, Links
+  - [x] Handle max message length (Zalo giới hạn ~2000 ký tự) — `truncateMessage`
+- [x] Received media detection — `detectReceivedMedia` cho image/file/video
+- [x] Media cache management IPC actions
+  - `cache-media`, `get-cached-media`, `cleanup-media-cache`, `clear-media-cache`
+  - `format-message`, `detect-media`
 
-**Deliverable mục tiêu:**
-- Gửi/nhận ảnh, file, video
-- Rich text formatting
+**Deliverable đạt được:**
+- Gửi/nhận ảnh, file, video từ URL hoặc local path
+- Rich text formatting (markdown → Zalo HTML)
+- Auto-truncate message > 2000 ký tự
+- Received media tự động cache vào `~/.hermes/data/zalo-media-cache/`
+- Cache cleanup (TTL 1 giờ, manual clear)
 
 ---
 

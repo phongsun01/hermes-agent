@@ -1,9 +1,8 @@
 import { ThreadType, Reactions } from "zca-js";
 import { getApi } from "./client.js";
-import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
-import * as nodeOs from "node:os";
 import { getCachedUserInfo, setCachedUserInfo, getCachedGroupInfo, setCachedGroupInfo, } from "./access-control.js";
+import { resolveMediaSource, prepareMessage, downloadAndCacheMedia, getCachedMediaPath, detectReceivedMedia, } from "./media.js";
 // Helper for result formatting
 function ok(data) {
     return {
@@ -77,58 +76,54 @@ export async function dispatch(p) {
             return ok({ msgId: res?.message?.msgId });
         }
         case "send-image": {
-            if (!p.threadId || !p.url)
-                throw new Error("threadId and url required");
+            if (!p.threadId)
+                throw new Error("threadId required");
+            const source = p.url || p.filePath || p.localPath;
+            if (!source)
+                throw new Error("url, filePath, or localPath required");
             const type = p.isGroup ? ThreadType.Group : ThreadType.User;
-            let resolvedPath = p.url;
-            if (/^https?:\/\//i.test(p.url)) {
-                // Simplified download logic
-                const tmpDir = nodeOs.tmpdir();
-                resolvedPath = nodePath.join(tmpDir, `zalo-img-${Date.now()}.jpg`);
-                // Note: Real implementation would use fetch
-                const response = await fetch(p.url);
-                const buffer = Buffer.from(await response.arrayBuffer());
-                nodeFs.writeFileSync(resolvedPath, buffer);
-            }
+            const { path: resolvedPath, cleanup } = await resolveMediaSource(source, "zalo-img");
             try {
-                const res = await api.sendMessage({ msg: p.message || "", attachments: [resolvedPath] }, p.threadId, type);
+                const caption = p.message ? prepareMessage(p.message).text : "";
+                const res = await api.sendMessage({ msg: caption, attachments: [resolvedPath] }, p.threadId, type);
                 return ok({ msgId: res?.message?.msgId });
             }
             finally {
-                if (/^https?:\/\//i.test(p.url)) {
-                    try {
-                        nodeFs.unlinkSync(resolvedPath);
-                    }
-                    catch { }
-                }
+                cleanup();
             }
         }
         case "send-file": {
             if (!p.threadId)
                 throw new Error("threadId required");
-            const localFile = p.filePath || p.url;
-            if (!localFile)
-                throw new Error("filePath or url required");
+            const source = p.filePath || p.url || p.localPath;
+            if (!source)
+                throw new Error("filePath, url, or localPath required");
             const type = p.isGroup ? ThreadType.Group : ThreadType.User;
-            let resolvedPath = localFile;
-            if (/^https?:\/\//i.test(localFile)) {
-                const tmpDir = nodeOs.tmpdir();
-                resolvedPath = nodePath.join(tmpDir, `zalo-file-${Date.now()}`);
-                const response = await fetch(localFile);
-                const buffer = Buffer.from(await response.arrayBuffer());
-                nodeFs.writeFileSync(resolvedPath, buffer);
-            }
+            const { path: resolvedPath, cleanup } = await resolveMediaSource(source, "zalo-file");
             try {
-                const res = await api.sendMessage({ msg: p.message || "", attachments: [resolvedPath] }, p.threadId, type);
-                return ok({ success: true, message: res?.message });
+                const caption = p.message ? prepareMessage(p.message).text : "";
+                const res = await api.sendMessage({ msg: caption, attachments: [resolvedPath] }, p.threadId, type);
+                return ok({ msgId: res?.message?.msgId, fileName: nodePath.basename(resolvedPath) });
             }
             finally {
-                if (/^https?:\/\//i.test(localFile)) {
-                    try {
-                        nodeFs.unlinkSync(resolvedPath);
-                    }
-                    catch { }
-                }
+                cleanup();
+            }
+        }
+        case "send-video": {
+            if (!p.threadId)
+                throw new Error("threadId required");
+            const source = p.url || p.filePath || p.localPath;
+            if (!source)
+                throw new Error("url, filePath, or localPath required");
+            const type = p.isGroup ? ThreadType.Group : ThreadType.User;
+            const { path: resolvedPath, cleanup } = await resolveMediaSource(source, "zalo-video");
+            try {
+                const caption = p.message ? prepareMessage(p.message).text : "";
+                const res = await api.sendMessage({ msg: caption, attachments: [resolvedPath] }, p.threadId, type);
+                return ok({ msgId: res?.message?.msgId });
+            }
+            finally {
+                cleanup();
             }
         }
         case "add-reaction": {
@@ -194,6 +189,47 @@ export async function dispatch(p) {
                 setCachedGroupInfo(gid, groupData);
             }
             return ok(groupData);
+        }
+        // Media cache management
+        case "cache-media": {
+            if (!p.url)
+                throw new Error("url required");
+            const ext = p.ext || "bin";
+            const localPath = await downloadAndCacheMedia(p.url, ext);
+            return ok({ cached: true, localPath });
+        }
+        case "get-cached-media": {
+            if (!p.url)
+                throw new Error("url required");
+            const ext = p.ext || "bin";
+            const cached = getCachedMediaPath(p.url, ext);
+            if (cached) {
+                return ok({ cached: true, localPath: cached });
+            }
+            return ok({ cached: false });
+        }
+        case "cleanup-media-cache": {
+            const { cleanupCache } = await import("./media.js");
+            const cleaned = cleanupCache();
+            return ok({ cleaned });
+        }
+        case "clear-media-cache": {
+            const { clearCache } = await import("./media.js");
+            clearCache();
+            return ok({ cleared: true });
+        }
+        // Message formatting
+        case "format-message": {
+            if (!p.text)
+                throw new Error("text required");
+            const { text, truncated } = prepareMessage(p.text, { formatMarkdown: p.formatMarkdown !== false });
+            return ok({ text, truncated });
+        }
+        case "detect-media": {
+            if (!p.raw)
+                throw new Error("raw message required");
+            const media = detectReceivedMedia(p.raw);
+            return ok({ media });
         }
         default:
             throw new Error(`Action "${p.action}" not implemented in worker yet.`);

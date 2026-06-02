@@ -19,6 +19,10 @@ import {
     clearAllCaches,
     type AccessControlConfig,
 } from "./access-control.js";
+import {
+    detectReceivedMedia,
+    downloadAndCacheMedia,
+} from "./media.js";
 
 class ZaloWorker {
     private api: any = null;
@@ -47,9 +51,28 @@ class ZaloWorker {
             this.loadAccessControlConfig();
 
             // Start listener
-            this.api.listener.on("message", (msg: any) => {
+            this.api.listener.on("message", async (msg: any) => {
                 const normalized = this.normalizeMessage(msg);
                 this.handleIncomingMessage(normalized);
+
+                // Check for media attachments in received messages
+                const raw = msg.data || msg;
+                const mediaInfo = detectReceivedMedia(raw);
+                if (mediaInfo && mediaInfo.url) {
+                    try {
+                        const localPath = await downloadAndCacheMedia(mediaInfo.url, this.getExtForMediaType(mediaInfo.type));
+                        this.emit("media_received", {
+                            type: mediaInfo.type,
+                            url: mediaInfo.url,
+                            local_path: localPath,
+                            mime_type: mediaInfo.mimeType,
+                            file_name: mediaInfo.fileName,
+                            thread_id: msg.threadId,
+                        });
+                    } catch (err: any) {
+                        console.error(`⚠️ Failed to cache received media: ${err.message}`);
+                    }
+                }
             });
 
             this.api.listener.start();
@@ -135,6 +158,23 @@ class ZaloWorker {
             is_group: !!inner.groupId,
             raw: msg
         };
+    }
+
+    private getExtForMediaType(type: string): string {
+        switch (type.toLowerCase()) {
+            case "image":
+            case "photo":
+                return "jpg";
+            case "video":
+                return "mp4";
+            case "audio":
+                return "mp3";
+            case "file":
+            case "document":
+                return "bin";
+            default:
+                return "bin";
+        }
     }
 
     private handleIncomingMessage(normalized: any) {
