@@ -33,8 +33,8 @@ Tài liệu này theo dõi chi tiết các công việc đã thực hiện và k
 - [x] UX mã QR: Tự động lưu mã QR vào `~/.hermes/data/zalo_qr.png`
 - [x] Lưu trữ session: Tự động lưu/tải cookie vào `~/.hermes/data/zalo_session.json`
 - [x] Cơ chế tự động kết nối lại khi restart gateway
-- [x] Cookie auto-save: Tự động lưu cookies refreshed mỗi 5 phút (configurable via `ZALO_COOKIE_SAVE_INTERVAL_MS`)
-- [x] Session health monitor: Kiểm tra session mỗi 10 phút, phát hiện auth failure
+- [x] Cookie auto-save: Tự động lưu cookies refreshed mỗi 30 phút (configurable via `ZALO_COOKIE_SAVE_INTERVAL_MS`)
+- [x] Session health monitor: Kiểm tra session mỗi 60 phút, phát hiện auth failure
 - [x] Auto QR re-login: Tự động trigger QR re-login khi session expired (3 consecutive failures)
 - [x] Session alerts: Gửi cảnh báo đến Python adapter khi session expiring/expired
 - [x] IPC methods: `get_session_health`, `trigger_qr_login`

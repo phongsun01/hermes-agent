@@ -15,15 +15,15 @@ let currentUid: string | null = null;
 /** [H2] Promise memoization to prevent concurrent login attempts */
 let loginPromise: Promise<API> | null = null;
 
-/** Cookie auto-save interval (default: 5 minutes) */
+/** Cookie auto-save interval (default: 30 minutes) */
 const COOKIE_SAVE_INTERVAL_MS = parseInt(
-  process.env.ZALO_COOKIE_SAVE_INTERVAL_MS || "300000",
+  process.env.ZALO_COOKIE_SAVE_INTERVAL_MS || "1800000",
   10
 );
 
-/** Session health check interval (default: 10 minutes) */
+/** Session health check interval (default: 60 minutes) */
 const SESSION_CHECK_INTERVAL_MS = parseInt(
-  process.env.ZALO_SESSION_CHECK_INTERVAL_MS || "600000",
+  process.env.ZALO_SESSION_CHECK_INTERVAL_MS || "3600000",
   10
 );
 
@@ -167,9 +167,11 @@ export function stopCookieAutoSave(): void {
 }
 
 // ─── Session Health Monitor ──────────────────────────────────────────────────
-// Periodically checks if the session is still valid by calling a lightweight
-// API. If it detects auth failure, emits an event so the Python adapter can
-// alert the user and trigger QR re-login.
+// Periodically checks if the session is still valid by reading the cached
+// user ID from the API context (local, no network request). If getOwnId()
+// returns null or throws an auth-related error, the session is considered
+// degraded. Emits an event so the Python adapter can alert the user and
+// trigger QR re-login.
 
 let sessionCheckTimer: ReturnType<typeof setInterval> | null = null;
 let consecutiveAuthFailures = 0;

@@ -88,8 +88,8 @@ zalo:
 | `ZALO_BOT_NAME` | `null` | Bot name for mention detection |
 | `ZALO_BOT_USER_ID` | `null` | Bot user ID for mention detection |
 | `ZALO_MENTION_PATTERNS` | `[]` | JSON array of regex patterns |
-| `ZALO_COOKIE_SAVE_INTERVAL_MS` | `300000` | Cookie auto-save interval (5 min) |
-| `ZALO_SESSION_CHECK_INTERVAL_MS` | `600000` | Session health check interval (10 min) |
+| `ZALO_COOKIE_SAVE_INTERVAL_MS` | `1800000` | Cookie auto-save interval (30 min) |
+| `ZALO_SESSION_CHECK_INTERVAL_MS` | `3600000` | Session health check interval (60 min) |
 | `ZALO_RATE_INTERVAL_MS` | `1000` | Minimum interval between messages (1 sec) |
 | `ZALO_RATE_MAX_BACKOFF_MS` | `30000` | Max backoff delay on errors (30 sec) |
 
