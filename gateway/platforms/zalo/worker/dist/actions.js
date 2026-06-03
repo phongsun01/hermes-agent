@@ -62,32 +62,46 @@ function resolveReaction(raw) {
 // â”€â”€â”€ Markdown â†’ Zalo styles (from zaloclaw send.ts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function markdownToZaloStyles(text) {
     const styles = [];
-    let result = text;
-    // Bold: **text**
-    const boldRe = /\*\*(.+?)\*\*/g;
-    let m;
-    while ((m = boldRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "b" });
+    let result = "";
+    let pos = 0;
+    const allMatches = [];
+    const patterns = [
+        { re: /\*\*(.+?)\*\*/g, st: "b", markerLen: 2 },
+        { re: /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, st: "i", markerLen: 1 },
+        { re: /__(.+?)__/g, st: "u", markerLen: 2 },
+        { re: /~~(.+?)~~/g, st: "s", markerLen: 2 },
+    ];
+    for (const pat of patterns) {
+        let m;
+        pat.re.lastIndex = 0;
+        while ((m = pat.re.exec(text)) !== null) {
+            allMatches.push({
+                index: m.index,
+                fullLen: m[0].length,
+                contentLen: m[1].length,
+                markerLen: pat.markerLen,
+                st: pat.st,
+            });
+        }
     }
-    result = result.replace(/\*\*(.+?)\*\*/g, "$1");
-    // Italic: *text*
-    const italicRe = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g;
-    while ((m = italicRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "i" });
+    allMatches.sort((a, b) => a.index - b.index);
+    const filtered = [];
+    let lastEnd = 0;
+    for (const match of allMatches) {
+        if (match.index >= lastEnd) {
+            filtered.push(match);
+            lastEnd = match.index + match.fullLen;
+        }
     }
-    result = result.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$1");
-    // Underline: __text__
-    const underlineRe = /__(.+?)__/g;
-    while ((m = underlineRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "u" });
+    for (const match of filtered) {
+        result += text.slice(pos, match.index);
+        const contentStart = result.length;
+        const content = text.slice(match.index + match.markerLen, match.index + match.fullLen - match.markerLen);
+        result += content;
+        styles.push({ start: contentStart, len: content.length, st: match.st });
+        pos = match.index + match.fullLen;
     }
-    result = result.replace(/__(.+?)__/g, "$1");
-    // Strikethrough: ~~text~~
-    const strikeRe = /~~(.+?)~~/g;
-    while ((m = strikeRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "s" });
-    }
-    result = result.replace(/~~(.+?)~~/g, "$1");
+    result += text.slice(pos);
     return { text: result, styles };
 }
 // â”€â”€â”€ Safe fetch helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -109,13 +123,20 @@ export async function dispatch(p) {
             if (!p.threadId || !p.message)
                 throw new Error("threadId and message required");
             const type = p.isGroup ? ThreadType.Group : ThreadType.User;
-            const content = { msg: p.message };
+            let msg = p.message;
+            let styles;
+            const converted = markdownToZaloStyles(msg);
+            msg = converted.text;
+            styles = converted.styles;
+            const content = { msg };
+            if (styles && styles.length > 0)
+                content.styles = styles;
             if (p.urgency !== undefined)
                 content.urgency = p.urgency;
             if (p.messageTtl !== undefined)
                 content.ttl = p.messageTtl;
             const res = await api.sendMessage(content, p.threadId, type);
-            return ok({ msgId: res?.message?.msgId });
+            return ok({ msgId: res?.message?.msgId, stylesApplied: styles?.length ?? 0 });
         }
         // â”€â”€ 2. send-styled â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         case "send-styled": {

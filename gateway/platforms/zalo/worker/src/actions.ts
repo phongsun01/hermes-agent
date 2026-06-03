@@ -95,36 +95,53 @@ function resolveReaction(raw: string): Reactions {
 
 function markdownToZaloStyles(text: string): { text: string; styles: any[] } {
     const styles: any[] = [];
-    let result = text;
+    let result = "";
+    let pos = 0;
 
-    // Bold: **text**
-    const boldRe = /\*\*(.+?)\*\*/g;
-    let m: RegExpExecArray | null;
-    while ((m = boldRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "b" });
-    }
-    result = result.replace(/\*\*(.+?)\*\*/g, "$1");
+    const allMatches: Array<{ index: number; fullLen: number; contentLen: number; markerLen: number; st: string }> = [];
 
-    // Italic: *text*
-    const italicRe = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g;
-    while ((m = italicRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "i" });
-    }
-    result = result.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$1");
+    const patterns = [
+        { re: /\*\*(.+?)\*\*/g, st: "b", markerLen: 2 },
+        { re: /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, st: "i", markerLen: 1 },
+        { re: /__(.+?)__/g, st: "u", markerLen: 2 },
+        { re: /~~(.+?)~~/g, st: "s", markerLen: 2 },
+    ];
 
-    // Underline: __text__
-    const underlineRe = /__(.+?)__/g;
-    while ((m = underlineRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "u" });
+    for (const pat of patterns) {
+        let m: RegExpExecArray | null;
+        pat.re.lastIndex = 0;
+        while ((m = pat.re.exec(text)) !== null) {
+            allMatches.push({
+                index: m.index,
+                fullLen: m[0].length,
+                contentLen: m[1].length,
+                markerLen: pat.markerLen,
+                st: pat.st,
+            });
+        }
     }
-    result = result.replace(/__(.+?)__/g, "$1");
 
-    // Strikethrough: ~~text~~
-    const strikeRe = /~~(.+?)~~/g;
-    while ((m = strikeRe.exec(text)) !== null) {
-        styles.push({ start: m.index, len: m[1].length, st: "s" });
+    allMatches.sort((a, b) => a.index - b.index);
+
+    const filtered: typeof allMatches = [];
+    let lastEnd = 0;
+    for (const match of allMatches) {
+        if (match.index >= lastEnd) {
+            filtered.push(match);
+            lastEnd = match.index + match.fullLen;
+        }
     }
-    result = result.replace(/~~(.+?)~~/g, "$1");
+
+    for (const match of filtered) {
+        result += text.slice(pos, match.index);
+        const contentStart = result.length;
+        const content = text.slice(match.index + match.markerLen, match.index + match.fullLen - match.markerLen);
+        result += content;
+        styles.push({ start: contentStart, len: content.length, st: match.st });
+        pos = match.index + match.fullLen;
+    }
+
+    result += text.slice(pos);
 
     return { text: result, styles };
 }
@@ -149,11 +166,17 @@ export async function dispatch(p: any): Promise<any> {
         case "send": {
             if (!p.threadId || !p.message) throw new Error("threadId and message required");
             const type = p.isGroup ? ThreadType.Group : ThreadType.User;
-            const content: any = { msg: p.message };
+            let msg = p.message;
+            let styles: any[] | undefined;
+            const converted = markdownToZaloStyles(msg);
+            msg = converted.text;
+            styles = converted.styles;
+            const content: any = { msg };
+            if (styles && styles.length > 0) content.styles = styles;
             if (p.urgency !== undefined) content.urgency = p.urgency as Urgency;
             if (p.messageTtl !== undefined) content.ttl = p.messageTtl;
             const res = await api.sendMessage(content, p.threadId, type);
-            return ok({ msgId: res?.message?.msgId });
+            return ok({ msgId: res?.message?.msgId, stylesApplied: styles?.length ?? 0 });
         }
 
         // â”€â”€ 2. send-styled â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
