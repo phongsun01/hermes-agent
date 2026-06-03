@@ -156,9 +156,89 @@ async function safeFetch(url: string, maxSizeBytes: number = 50 * 1024 * 1024): 
     return { buffer };
 }
 
+// ─── Rate Limiter ────────────────────────────────────────────────────────────
+// Prevents Zalo account bans by enforcing a minimum interval between outbound
+// messages. Default: 1 msg/sec with exponential backoff on consecutive errors.
+
+class RateLimiter {
+    private queue: Array<{
+        fn: () => Promise<any>;
+        resolve: (value: any) => void;
+        reject: (reason: any) => void;
+    }> = [];
+    private processing = false;
+    private minIntervalMs: number;
+    private consecutiveErrors = 0;
+    private maxBackoffMs: number;
+
+    constructor(minIntervalMs = 1000, maxBackoffMs = 30_000) {
+        this.minIntervalMs = minIntervalMs;
+        this.maxBackoffMs = maxBackoffMs;
+    }
+
+    async enqueue<T>(fn: () => Promise<T>): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            this.queue.push({ fn, resolve, reject });
+            this.process();
+        });
+    }
+
+    private async process() {
+        if (this.processing || this.queue.length === 0) return;
+        this.processing = true;
+
+        while (this.queue.length > 0) {
+            const task = this.queue.shift()!;
+            try {
+                const result = await task.fn();
+                this.consecutiveErrors = 0;
+                task.resolve(result);
+            } catch (err: any) {
+                this.consecutiveErrors++;
+                task.reject(err);
+            }
+
+            const backoffMs = Math.min(
+                this.minIntervalMs * Math.pow(2, Math.max(0, this.consecutiveErrors - 1)),
+                this.maxBackoffMs
+            );
+            const delay = this.consecutiveErrors > 0 ? backoffMs : this.minIntervalMs;
+            if (delay > this.minIntervalMs) {
+                console.error(`[RateLimiter] Backoff: ${delay}ms (consecutive errors: ${this.consecutiveErrors})`);
+            }
+            await this.delayMs(delay);
+        }
+
+        this.processing = false;
+    }
+
+    private delayMs(ms: number) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    getStatus() {
+        return {
+            queued: this.queue.length,
+            processing: this.processing,
+            consecutiveErrors: this.consecutiveErrors,
+            minIntervalMs: this.minIntervalMs,
+        };
+    }
+}
+
+// Global rate limiter instance
+const rateLimiter = new RateLimiter(
+    parseInt(process.env.ZALO_RATE_INTERVAL_MS || "1000", 10),
+    parseInt(process.env.ZALO_RATE_MAX_BACKOFF_MS || "30000", 10)
+);
+
+export function getRateLimiterStatus() {
+    return rateLimiter.getStatus();
+}
+
 // â”€â”€â”€ Dispatch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export async function dispatch(p: any): Promise<any> {
+async function _dispatchImpl(p: any): Promise<any> {
     const api = await getApi();
 
     switch (p.action) {
@@ -1322,7 +1402,9 @@ export async function dispatch(p: any): Promise<any> {
             throw new Error(`Action "${p.action}" not implemented.`);
     }
 }
-
-
-
+// Public dispatch - all calls go through the rate limiter to prevent
+// Zalo account bans from rapid-fire API calls.
+export async function dispatch(p: any): Promise<any> {
+    return rateLimiter.enqueue(() => _dispatchImpl(p));
+}
 

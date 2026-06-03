@@ -2,6 +2,15 @@
 
 ## [Unreleased] — Zalo Platform Integration
 
+### Added (Phase 5: Advanced Features — 2026-06-03)
+- **`send_message` tool support** — Zalo integrated into cross-platform messaging tool; agent can proactively send messages to Zalo from any platform
+- **Cron delivery** — Scheduled jobs can deliver results to Zalo via `send_message` tool
+- **Platform hints** — Added "zalo" entry to `PLATFORM_HINTS` in `agent/prompt_builder.py`; agent understands Zalo capabilities (markdown, MEDIA: syntax, image URLs, 2000-char limit)
+- **Rate limiter** — `RateLimiter` class in worker enforces 1 msg/sec with exponential backoff on consecutive errors; configurable via `ZALO_RATE_INTERVAL_MS` and `ZALO_RATE_MAX_BACKOFF_MS` env vars
+- **Worker supervision** — `_supervise_worker()` async task auto-restarts crashed worker with exponential backoff (5s→300s cap), max 10 restarts before manual intervention required
+- **Metrics tracking** — `get_metrics()` method exposes uptime, messages sent/received, error count, restart count, pending requests; `record_message_sent()` / `record_message_received()` for per-operation tracking
+- **Rate limiter status IPC** — `get_rate_limiter_status` method for monitoring queue depth, backoff state, consecutive errors
+
 ### Added (Phase 2: Rich Messages & Media — 2026-06-02)
 - **Media Handlers** — `send_image`, `send_file`, `send_video` actions in worker (URL + local path)
 - **Message Formatting** — Markdown → Zalo HTML conversion (bold, italic, strikethrough, underline, code, links)

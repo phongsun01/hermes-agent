@@ -536,6 +536,16 @@ PLATFORM_HINTS = {
         "downloaded and sent as native photos. Do NOT tell the user you lack file-sending "
         "capability — use MEDIA: syntax whenever a file delivery is appropriate."
     ),
+    "zalo": (
+        "You are on Zalo, a Vietnamese messaging platform. Markdown formatting is "
+        "automatically converted to Zalo styled text — **bold**, *italic*, "
+        "~~strikethrough~~, __underline__, and `code` all work. "
+        "You can send media files natively: include MEDIA:/absolute/path/to/file "
+        "in your response. Images (.jpg, .png, .webp) are sent as native photos, "
+        "videos (.mp4) play inline, and other files arrive as downloadable documents. "
+        "You can also include image URLs in markdown format ![alt](url) and they "
+        "will be sent as native photos. Messages are auto-truncated at ~2000 characters."
+    ),
     "qqbot": (
         "You are on QQ, a popular Chinese messaging platform. QQ supports markdown formatting "
         "and emoji. You can send media files natively: include MEDIA:/absolute/path/to/file in "

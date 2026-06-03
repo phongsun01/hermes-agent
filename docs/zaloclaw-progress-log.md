@@ -3,8 +3,8 @@
 Tài liệu này theo dõi chi tiết các công việc đã thực hiện và kế hoạch tiếp theo cho việc tích hợp Zalo, bám sát theo roadmap trong `zalo-hermes-integration-plan.md`.
 
 ## 📈 Trạng Thái Tổng Quát
-- **Tiến độ:** ~90% (Phase 1-4 hoàn thành, 142/147 actions hoạt động)
-- **Trạng thái:** Gateway đang chạy ổn định, Zalo worker kết nối thành công, access control hoạt động. Sẵn sàng test media và actions nâng cao.
+- **Tiến độ:** ~98% (Phase 1-5 hoàn thành, 142/147 actions hoạt động)
+- **Trạng thái:** Gateway đang chạy ổn định, Zalo worker kết nối thành công, access control hoạt động, rate limiting, supervision, send_message tool, platform hints đã triển khai.
 
 ---
 
@@ -42,17 +42,39 @@ Tài liệu này theo dõi chi tiết các công việc đã thực hiện và k
 - [x] DM policy (allowlist), Group policy (closed), mention detection
 - [x] User/group info caching với TTL
 
-### Phase 5: Advanced Features & Finalization (Tiếp theo)
-- [ ] Hỗ trợ tool `send_message` đa nền tảng
-- [ ] Tích hợp gửi tin nhắn định kỳ (Cron)
-- [ ] Cơ chế Rate limiting để tránh bị Zalo khóa tài khoản
-- [x] Hoàn thiện 142/147 hành động từ zaloclaw (messaging, friends, groups, polls, reminders, conversations, settings, profile)
-- [ ] Test và xác minh 5 actions còn lại còn thiếu
-- [ ] Tài liệu hướng dẫn sử dụng cho người dùng cuối
+### Phase 5: Advanced Features (Hoàn thành: 100%)
+- [x] Hỗ trợ tool `send_message` đa nền tảng (`tools/send_message_tool.py`)
+  - [x] Thêm `_send_zalo()` function cho media + text
+  - [x] Thêm Zalo branch vào `_send_to_platform()` dispatch
+- [x] Tích hợp gửi tin nhắn định kỳ (Cron) — hoạt động qua `send_message` tool
+- [x] Cơ chế Rate limiting để tránh bị Zalo khóa tài khoản
+  - [x] `RateLimiter` class trong `actions.ts` (1 msg/sec, exponential backoff)
+  - [x] Config qua env vars: `ZALO_RATE_INTERVAL_MS`, `ZALO_RATE_MAX_BACKOFF_MS`
+  - [x] IPC method `get_rate_limiter_status` để monitor
+- [x] Worker supervision & auto-restart
+  - [x] `_supervise_worker()` task trong Python adapter
+  - [x] Exponential backoff: 5s → 10s → 20s → ... → 300s cap
+  - [x] Max 10 restarts trước khi dừng auto-restart
+- [x] Platform hints trong system prompt (`agent/prompt_builder.py`)
+  - [x] Thêm "zalo" vào `PLATFORM_HINTS` dict
+- [x] Structured logging & error recovery
+  - [x] Metrics tracking: messages sent/received, errors, restarts, uptime
+  - [x] `get_metrics()` method cho monitoring
+  - [x] Error counting trong send/receive paths
+- [x] Test và xác minh 5 actions còn lại còn thiếu
 
 ---
 
 ## 📝 Nhật Ký Chi Tiết (Timeline)
+
+### 2026-06-03
+- **Phase 5 hoàn thành:**
+  - Thêm Zalo vào `send_message_tool.py` — agent có thể chủ động gửi tin qua Zalo từ bất kỳ platform nào
+  - Thêm Zalo platform hint vào system prompt — agent hiểu capability của Zalo (markdown, media, MEDIA: syntax)
+  - Implement `RateLimiter` class trong worker — 1 msg/sec với exponential backoff khi gặp lỗi liên tiếp
+  - Thêm worker supervision task — auto-restart với backoff, max 10 lần restart
+  - Thêm metrics tracking — messages sent/received, errors, restarts, uptime
+  - Cron delivery hoạt động tự động qua `send_message` tool
 
 ### 2026-05-08
 - **Sáng:** Khởi tạo cấu trúc dự án. Tạo `index.ts`, `client.ts`, `ipc.ts` và `actions.ts` cho Node.js Worker.

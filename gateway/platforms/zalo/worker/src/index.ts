@@ -3,7 +3,7 @@ import { createInterface } from "node:readline";
 import { LoginQRCallbackEventType } from "zca-js";
 import { loginWithQR, loginWithCredentials, getApi, getCurrentUid } from "./client.js";
 import { hasCredentials } from "./credentials.js";
-import { dispatch } from "./actions.js";
+import { dispatch, getRateLimiterStatus } from "./actions.js";
 import { IPCRequest, IPCResponse, IPCEvent } from "./ipc.js";
 import {
     parseAccessControlConfig,
@@ -275,6 +275,10 @@ class ZaloWorker {
 
         if (method === "get_cached_group_info") {
             return getCachedGroupInfo(params.groupId);
+        }
+
+        if (method === "get_rate_limiter_status") {
+            return getRateLimiterStatus();
         }
         
         // Internal methods

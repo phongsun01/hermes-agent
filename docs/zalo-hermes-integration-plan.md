@@ -645,20 +645,22 @@ npm run build  # TypeScript → dist/
 
 ---
 
-### Phase 5: Advanced Features ⏳ CHƯA BẮT ĐẦU
+### Phase 5: Advanced Features ✅ HOÀN THÀNH
 
-**Tasks cần làm:**
-1. Cron delivery integration (gửi tin nhắn theo lịch)
-2. `send_message` tool support (agent chủ động gửi tin)
-3. Platform hints trong system prompt
-4. Rate limiting đầy đủ (1 msg/sec, backoff)
-5. Error recovery & structured logging
-6. Metrics & monitoring
+**Tasks đã thực hiện:**
+1. [x] Cron delivery integration — hoạt động qua `send_message` tool
+2. [x] `send_message` tool support — thêm `_send_zalo()` + Zalo branch trong `_send_to_platform()`
+3. [x] Platform hints trong system prompt — thêm "zalo" vào `PLATFORM_HINTS`
+4. [x] Rate limiting đầy đủ — `RateLimiter` class (1 msg/sec, exponential backoff, configurable)
+5. [x] Error recovery & structured logging — worker supervision, auto-restart, metrics
+6. [x] Metrics & monitoring — `get_metrics()`, `record_message_sent/received()`, error counting
 
-**Deliverable mục tiêu:**
-- Scheduled messages via cron
-- Cross-platform send_message
-- Production-ready stability
+**Deliverable đạt được:**
+- Agent có thể chủ động gửi tin nhắn qua Zalo từ bất kỳ platform nào qua `send_message` tool
+- Cron jobs có thể gửi kết quả đến Zalo
+- Rate limiter ngăn chặn account ban (1 msg/sec, backoff khi lỗi liên tiếp)
+- Worker tự động restart khi crash (exponential backoff, max 10 lần)
+- Metrics tracking: messages sent/received, errors, restarts, uptime
 
 ---
 

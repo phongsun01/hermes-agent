@@ -2,7 +2,7 @@ import { createInterface } from "node:readline";
 import { LoginQRCallbackEventType } from "zca-js";
 import { loginWithQR, loginWithCredentials, getCurrentUid } from "./client.js";
 import { hasCredentials } from "./credentials.js";
-import { dispatch } from "./actions.js";
+import { dispatch, getRateLimiterStatus } from "./actions.js";
 import { parseAccessControlConfig, checkAccess, stripMentionPrefix, AccessDecision, getAccessControlStatus, setCachedUserInfo, setCachedGroupInfo, getCachedUserInfo, getCachedGroupInfo, clearAllCaches, } from "./access-control.js";
 import { detectReceivedMedia, downloadAndCacheMedia, } from "./media.js";
 class ZaloWorker {
@@ -239,6 +239,9 @@ class ZaloWorker {
         }
         if (method === "get_cached_group_info") {
             return getCachedGroupInfo(params.groupId);
+        }
+        if (method === "get_rate_limiter_status") {
+            return getRateLimiterStatus();
         }
         // Internal methods
         switch (method) {

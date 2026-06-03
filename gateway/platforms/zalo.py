@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from typing import Dict, List, Optional, Any, Set
 from pathlib import Path
 
@@ -250,6 +251,22 @@ class ZaloAdapter(BasePlatformAdapter):
         # Access control
         self.ac = ZaloAccessControl(config)
 
+        # Supervision / auto-restart
+        self._supervisor_task: Optional[asyncio.Task] = None
+        self._restart_count = 0
+        self._max_restarts = 10
+        self._restart_backoff = 5  # seconds, doubles each restart
+        self._connected_time = 0.0
+
+        # Metrics
+        self._metrics = {
+            "messages_sent": 0,
+            "messages_received": 0,
+            "errors": 0,
+            "restarts": 0,
+            "started_at": None,
+        }
+
     async def connect(self) -> bool:
         """Start the Node.js worker subprocess."""
         if not self.worker_script.exists():
@@ -302,6 +319,13 @@ class ZaloAdapter(BasePlatformAdapter):
             
             logger.info("[Zalo] Worker process started successfully.")
             self._mark_connected()
+            self._connected_time = asyncio.get_event_loop().time()
+            self._metrics["started_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            
+            # Start supervisor task
+            if not self._supervisor_task or self._supervisor_task.done():
+                self._supervisor_task = asyncio.create_task(self._supervise_worker())
+            
             return True
         except Exception as e:
             logger.error(f"[Zalo] Failed to start worker: {e}")
@@ -322,11 +346,98 @@ class ZaloAdapter(BasePlatformAdapter):
 
     async def disconnect(self):
         """Stop the worker subprocess."""
+        # Cancel supervisor
+        if self._supervisor_task and not self._supervisor_task.done():
+            self._supervisor_task.cancel()
+            try:
+                await self._supervisor_task
+            except asyncio.CancelledError:
+                pass
+        
         if self.worker:
             self.worker.terminate()
+            try:
+                self.worker.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.worker.kill()
             self.worker = None
         self._mark_disconnected()
         logger.info("[Zalo] Worker process stopped.")
+
+    async def _supervise_worker(self):
+        """Monitor worker health and auto-restart on crash.
+        
+        Uses exponential backoff: 5s -> 10s -> 20s -> ... -> 300s cap.
+        Stops restarting after _max_restarts to avoid infinite loops.
+        """
+        backoff = self._restart_backoff
+        max_backoff = 300  # 5 minutes
+        
+        while True:
+            await asyncio.sleep(10)  # Check every 10 seconds
+            
+            if self.worker is None:
+                continue  # Intentionally stopped
+            
+            if self.worker.poll() is None:
+                continue  # Still running
+            
+            # Worker has died
+            exit_code = self.worker.returncode
+            logger.error(f"[Zalo] Worker died with exit code {exit_code}")
+            self._metrics["errors"] += 1
+            
+            # Check if we've exceeded max restarts
+            if self._restart_count >= self._max_restarts:
+                logger.error(
+                    f"[Zalo] Max restarts ({self._max_restarts}) reached. "
+                    f"Worker will not be auto-restarted. Manual intervention required."
+                )
+                self._mark_disconnected()
+                return
+            
+            # Exponential backoff
+            logger.info(f"[Zalo] Restarting worker in {backoff}s (attempt {self._restart_count + 1}/{self._max_restarts})")
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, max_backoff)
+            
+            # Attempt restart
+            self._restart_count += 1
+            self._metrics["restarts"] = self._restart_count
+            logger.info(f"[Zalo] Attempting worker restart #{self._restart_count}")
+            
+            success = await self.connect()
+            if success:
+                logger.info(f"[Zalo] Worker restarted successfully (attempt #{self._restart_count})")
+                backoff = self._restart_backoff  # Reset backoff on success
+            else:
+                logger.error(f"[Zalo] Worker restart failed (attempt #{self._restart_count})")
+
+    def get_metrics(self) -> dict:
+        """Return adapter metrics for monitoring."""
+        uptime = 0.0
+        if self._connected_time > 0:
+            uptime = asyncio.get_event_loop().time() - self._connected_time
+        
+        return {
+            "platform": "zalo",
+            "connected": self.worker is not None and self.worker.poll() is None,
+            "uptime_seconds": round(uptime, 1),
+            "restart_count": self._restart_count,
+            "messages_sent": self._metrics["messages_sent"],
+            "messages_received": self._metrics["messages_received"],
+            "errors": self._metrics["errors"],
+            "started_at": self._metrics["started_at"],
+            "pending_requests": len(self.pending_requests),
+        }
+
+    def record_message_sent(self):
+        """Track a sent message for metrics."""
+        self._metrics["messages_sent"] += 1
+
+    def record_message_received(self):
+        """Track a received message for metrics."""
+        self._metrics["messages_received"] += 1
 
     def _read_worker_stdout(self):
         """Continuously read lines from the worker's stdout."""
@@ -428,7 +539,8 @@ class ZaloAdapter(BasePlatformAdapter):
                 message_id=data.get("message_id") or data.get("msg_id") or data.get("messageId"),
             )
             logger.info(f"[Zalo] Inbound message from {event.source.user_id}: {event.text[:80]}")
-            print(f"[Zalo] 📨 Message from {event.source.user_name}: {event.text[:60]}", flush=True)
+            self.record_message_received()
+            print(f"[Zalo] Message from {event.source.user_name}: {event.text[:60]}", flush=True)
 
             # Auto-detect and echo back image URLs from user messages
             image_urls = self._extract_image_urls(text)
@@ -665,9 +777,11 @@ class ZaloAdapter(BasePlatformAdapter):
 
                 result = await self._call_worker("zalo_action", params)
                 
+                self.record_message_sent()
                 return SendResult(success=True, message_id=result.get("msgId") if result else None)
         except Exception as e:
             logger.error(f"[Zalo] Failed to send message: {e}")
+            self._metrics["errors"] += 1
             return SendResult(success=False, error=str(e))
 
     def _extract_image_urls(self, text: str) -> list:

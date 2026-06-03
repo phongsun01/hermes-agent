@@ -734,11 +734,27 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
             last_result = result
         return last_result
 
+    # --- Zalo: native media attachment support via adapter ---
+    if platform == Platform.ZALO and media_files:
+        last_result = None
+        for i, chunk in enumerate(chunks):
+            is_last = (i == len(chunks) - 1)
+            result = await _send_zalo(
+                chat_id,
+                chunk,
+                media_files=media_files if is_last else [],
+                thread_id=thread_id,
+            )
+            if isinstance(result, dict) and result.get("error"):
+                return result
+            last_result = result
+        return last_result
+
     # --- Non-media platforms ---
     if media_files and not message.strip():
         return {
             "error": (
-                f"send_message MEDIA delivery is currently only supported for telegram, discord, matrix, weixin, signal, yuanbao and feishu; "
+                f"send_message MEDIA delivery is currently only supported for telegram, discord, matrix, weixin, signal, yuanbao, feishu and zalo; "
                 f"target {platform.value} had only media attachments"
             )
         }
@@ -746,7 +762,7 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
     if media_files:
         warning = (
             f"MEDIA attachments were omitted for {platform.value}; "
-            "native send_message media delivery is currently only supported for telegram, discord, matrix, weixin, signal, yuanbao and feishu"
+            "native send_message media delivery is currently only supported for telegram, discord, matrix, weixin, signal, yuanbao, feishu and zalo"
         )
 
     last_result = None
@@ -777,6 +793,8 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
             result = await _send_qqbot(pconfig, chat_id, chunk)
         elif platform == Platform.YUANBAO:
             result = await _send_yuanbao(chat_id, chunk)
+        elif platform == Platform.ZALO:
+            result = await _send_zalo(chat_id, chunk)
         else:
             # Plugin platform: route through the gateway's live adapter if
             # available, otherwise the plugin's standalone_sender_fn.
@@ -1771,6 +1789,35 @@ async def _send_yuanbao(chat_id, message, media_files=None):
         return await send_yuanbao_direct(adapter, chat_id, message, media_files=media_files)
     except Exception as e:
         return _error(f"Yuanbao send failed: {e}")
+
+
+async def _send_zalo(chat_id, message, media_files=None, thread_id=None):
+    """Send via Zalo using the running gateway adapter (Node.js worker subprocess).
+
+    Zalo uses a subprocess-based adapter — text goes through adapter.send(),
+    media files are dispatched via zalo_action IPC calls (send-image, send-file,
+    send-video).
+    """
+    from gateway.config import Platform, load_gateway_config
+
+    try:
+        config = load_gateway_config()
+    except Exception as e:
+        return _error(f"Failed to load gateway config: {e}")
+
+    pconfig = config.platforms.get(Platform.ZALO)
+    if not pconfig or not pconfig.enabled:
+        return _error("Zalo platform is not configured or not enabled.")
+
+    # Route through the live adapter for text + media
+    return await _send_via_adapter(
+        Platform.ZALO,
+        pconfig,
+        chat_id,
+        message,
+        thread_id=thread_id,
+        media_files=media_files or [],
+    )
 
 
 # --- Registry ---
