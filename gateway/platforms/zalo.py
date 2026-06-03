@@ -493,6 +493,8 @@ class ZaloAdapter(BasePlatformAdapter):
             self._on_qr_code(payload)
         elif event_type == "media_received":
             self._on_media_received(payload)
+        elif event_type == "session_alert":
+            self._on_session_alert(payload)
 
     def _on_message(self, data: dict):
         """Handle incoming message from Zalo."""
@@ -623,6 +625,22 @@ class ZaloAdapter(BasePlatformAdapter):
         except Exception as e:
             logger.error(f"[Zalo] Error handling received media: {e}", exc_info=True)
 
+    def _on_session_alert(self, data: dict):
+        """Handle session health alert from worker."""
+        level = data.get("level", "info")
+        message = data.get("message", "")
+        requires_qr = data.get("requires_qr", False)
+
+        if level == "critical":
+            logger.error(f"[Zalo Session] CRITICAL: {message}")
+            print(f"\n[Zalo] SESSION EXPIRED: {message}", flush=True)
+            print(f"[Zalo] Please scan the new QR code to re-login.", flush=True)
+        elif level == "warning":
+            logger.warning(f"[Zalo Session] WARNING: {message}")
+            print(f"[Zalo] Session warning: {message}", flush=True)
+        else:
+            logger.info(f"[Zalo Session] {message}")
+
     async def _call_worker(self, method: str, params: dict) -> Any:
         """Call a method on the Node.js worker and wait for response."""
         if not self.worker or not self.worker.stdin:
@@ -728,6 +746,22 @@ class ZaloAdapter(BasePlatformAdapter):
         except Exception as e:
             logger.warning(f"[Zalo] Failed to clear worker caches: {e}")
         return {"cleared": True}
+
+    async def get_session_health(self) -> dict:
+        """Get current session health status."""
+        try:
+            return await self._call_worker("get_session_health", {})
+        except Exception as e:
+            logger.warning(f"[Zalo] Failed to get session health: {e}")
+            return {"status": "unknown", "error": str(e)}
+
+    async def trigger_qr_login(self) -> dict:
+        """Manually trigger QR re-login."""
+        try:
+            return await self._call_worker("trigger_qr_login", {})
+        except Exception as e:
+            logger.error(f"[Zalo] Failed to trigger QR login: {e}")
+            return {"error": str(e)}
 
     async def send(
         self,

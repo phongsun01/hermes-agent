@@ -5,6 +5,7 @@ import {
   loadCredentials,
   deleteCredentials,
   hasCredentials,
+  refreshCredentials,
 } from "./credentials.js";
 import sharp from "sharp";
 import * as fs from "fs";
@@ -13,6 +14,18 @@ let apiInstance: API | null = null;
 let currentUid: string | null = null;
 /** [H2] Promise memoization to prevent concurrent login attempts */
 let loginPromise: Promise<API> | null = null;
+
+/** Cookie auto-save interval (default: 5 minutes) */
+const COOKIE_SAVE_INTERVAL_MS = parseInt(
+  process.env.ZALO_COOKIE_SAVE_INTERVAL_MS || "300000",
+  10
+);
+
+/** Session health check interval (default: 10 minutes) */
+const SESSION_CHECK_INTERVAL_MS = parseInt(
+  process.env.ZALO_SESSION_CHECK_INTERVAL_MS || "600000",
+  10
+);
 
 export type QrCallback = (event: LoginQRCallbackEvent) => unknown;
 
@@ -119,4 +132,137 @@ export async function logout(): Promise<void> {
 
 export async function ensureAuthenticated(): Promise<API> {
   return getApi();
+}
+
+// ─── Cookie Auto-Save ────────────────────────────────────────────────────────
+// zca-js refreshes cookies internally during API calls. This interval timer
+// periodically extracts the current CookieJar and saves it to disk so that
+// a restarted worker can resume without requiring QR re-login.
+
+let cookieSaveTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startCookieAutoSave(): void {
+  stopCookieAutoSave();
+  cookieSaveTimer = setInterval(() => {
+    if (!apiInstance) return;
+    try {
+      const jar = apiInstance.getCookie();
+      if (jar) {
+        refreshCredentials(jar);
+      }
+    } catch (err: any) {
+      console.error(`[CookieAutoSave] Failed to save cookies: ${err.message}`);
+    }
+  }, COOKIE_SAVE_INTERVAL_MS);
+  console.error(
+    `[CookieAutoSave] Enabled (interval: ${COOKIE_SAVE_INTERVAL_MS / 1000}s)`
+  );
+}
+
+export function stopCookieAutoSave(): void {
+  if (cookieSaveTimer) {
+    clearInterval(cookieSaveTimer);
+    cookieSaveTimer = null;
+  }
+}
+
+// ─── Session Health Monitor ──────────────────────────────────────────────────
+// Periodically checks if the session is still valid by calling a lightweight
+// API. If it detects auth failure, emits an event so the Python adapter can
+// alert the user and trigger QR re-login.
+
+let sessionCheckTimer: ReturnType<typeof setInterval> | null = null;
+let consecutiveAuthFailures = 0;
+const MAX_CONSECUTIVE_FAILURES = 3;
+
+export type SessionHealthCallback = (
+  status: "healthy" | "expiring" | "expired"
+) => void;
+
+let healthCallback: SessionHealthCallback | null = null;
+
+export function setSessionHealthCallback(cb: SessionHealthCallback): void {
+  healthCallback = cb;
+}
+
+export function startSessionHealthMonitor(): void {
+  stopSessionHealthMonitor();
+  consecutiveAuthFailures = 0;
+
+  sessionCheckTimer = setInterval(async () => {
+    if (!apiInstance) return;
+
+    try {
+      // Lightweight health check — getOwnId is fast and requires valid session
+      const uid = apiInstance.getOwnId();
+      if (uid) {
+        consecutiveAuthFailures = 0;
+        healthCallback?.("healthy");
+      } else {
+        handleSessionDegradation();
+      }
+    } catch (err: any) {
+      const msg = (err.message || "").toLowerCase();
+      // Check for auth-related errors
+      if (
+        msg.includes("auth") ||
+        msg.includes("unauthorized") ||
+        msg.includes("forbidden") ||
+        msg.includes("401") ||
+        msg.includes("403") ||
+        msg.includes("token") ||
+        msg.includes("session") ||
+        msg.includes("cookie")
+      ) {
+        handleSessionDegradation();
+      } else {
+        // Non-auth error — likely transient network issue
+        console.error(
+          `[SessionHealth] Non-auth error during check: ${err.message}`
+        );
+      }
+    }
+  }, SESSION_CHECK_INTERVAL_MS);
+
+  console.error(
+    `[SessionHealth] Monitor enabled (interval: ${SESSION_CHECK_INTERVAL_MS / 1000}s)`
+  );
+}
+
+function handleSessionDegradation(): void {
+  consecutiveAuthFailures++;
+  console.error(
+    `[SessionHealth] Auth failure ${consecutiveAuthFailures}/${MAX_CONSECUTIVE_FAILURES}`
+  );
+
+  if (consecutiveAuthFailures >= MAX_CONSECUTIVE_FAILURES) {
+    console.error("[SessionHealth] Session EXPIRED — QR re-login required");
+    healthCallback?.("expired");
+    consecutiveAuthFailures = 0; // Reset to avoid repeated alerts
+  } else if (consecutiveAuthFailures >= 2) {
+    console.error("[SessionHealth] Session EXPIRING — cookies may be stale");
+    healthCallback?.("expiring");
+  }
+}
+
+export function stopSessionHealthMonitor(): void {
+  if (sessionCheckTimer) {
+    clearInterval(sessionCheckTimer);
+    sessionCheckTimer = null;
+  }
+  consecutiveAuthFailures = 0;
+}
+
+export function getSessionHealthStatus(): {
+  healthy: boolean;
+  consecutiveFailures: number;
+  cookieSaveActive: boolean;
+  sessionMonitorActive: boolean;
+} {
+  return {
+    healthy: consecutiveAuthFailures === 0,
+    consecutiveFailures: consecutiveAuthFailures,
+    cookieSaveActive: cookieSaveTimer !== null,
+    sessionMonitorActive: sessionCheckTimer !== null,
+  };
 }

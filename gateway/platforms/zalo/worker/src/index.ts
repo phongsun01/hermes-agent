@@ -1,7 +1,18 @@
 
 import { createInterface } from "node:readline";
 import { LoginQRCallbackEventType } from "zca-js";
-import { loginWithQR, loginWithCredentials, getApi, getCurrentUid } from "./client.js";
+import {
+    loginWithQR,
+    loginWithCredentials,
+    getApi,
+    getCurrentUid,
+    startCookieAutoSave,
+    stopCookieAutoSave,
+    startSessionHealthMonitor,
+    stopSessionHealthMonitor,
+    setSessionHealthCallback,
+    getSessionHealthStatus,
+} from "./client.js";
 import { hasCredentials } from "./credentials.js";
 import { dispatch, getRateLimiterStatus } from "./actions.js";
 import { IPCRequest, IPCResponse, IPCEvent } from "./ipc.js";
@@ -27,6 +38,8 @@ import {
 class ZaloWorker {
     private api: any = null;
     private acConfig: AccessControlConfig = { ...parseAccessControlConfig({}) };
+    private _sessionStatus: "healthy" | "expiring" | "expired" | "unknown" = "unknown";
+    private _qrLoginInProgress = false;
 
     async start() {
         console.error("🚀 Zalo Worker starting...");
@@ -46,6 +59,11 @@ class ZaloWorker {
                 console.error("🔑 No credentials found, please scan QR code.");
                 await this.qrLogin();
             }
+
+            // Start cookie auto-save and session health monitoring
+            startCookieAutoSave();
+            setSessionHealthCallback((status) => this.onSessionHealthChange(status));
+            startSessionHealthMonitor();
 
             // Load access control config from environment or file
             this.loadAccessControlConfig();
@@ -84,6 +102,56 @@ class ZaloWorker {
         } catch (err: any) {
             console.error("❌ Fatal error during startup:", err.message);
             process.exit(1);
+        }
+    }
+
+    private onSessionHealthChange(status: "healthy" | "expiring" | "expired") {
+        this._sessionStatus = status;
+
+        if (status === "expired") {
+            // Emit alert to Python adapter
+            this.emit("session_alert", {
+                level: "critical",
+                message: "Zalo session expired. QR re-login required.",
+                requires_qr: true,
+            });
+
+            // Auto-trigger QR re-login
+            if (!this._qrLoginInProgress) {
+                console.error("🔑 Session expired — initiating QR re-login...");
+                this.qrLogin().catch((err: any) => {
+                    console.error(`❌ QR re-login failed: ${err.message}`);
+                });
+            }
+        } else if (status === "expiring") {
+            this.emit("session_alert", {
+                level: "warning",
+                message: "Zalo session may be expiring. Cookies are being refreshed.",
+                requires_qr: false,
+            });
+        }
+    }
+
+    private async qrLogin() {
+        this._qrLoginInProgress = true;
+        try {
+            // Stop monitors during re-login
+            stopCookieAutoSave();
+            stopSessionHealthMonitor();
+
+            this.api = await loginWithQR(async (event: any) => {
+                if (event.type === LoginQRCallbackEventType.QRCodeGenerated) {
+                    this.emit("qr_code", { qr_data: event.data });
+                }
+            });
+            console.error("✅ QR Login successful!");
+
+            // Restart monitors after successful login
+            startCookieAutoSave();
+            startSessionHealthMonitor();
+            this._sessionStatus = "healthy";
+        } finally {
+            this._qrLoginInProgress = false;
         }
     }
 
@@ -133,15 +201,6 @@ class ZaloWorker {
         // Log access control status
         const status = getAccessControlStatus(this.acConfig);
         console.error(`🔒 AC Status: DM=${status.dmPolicy}, Group=${status.groupPolicy}, Mention=${status.requireMention}`);
-    }
-
-    private async qrLogin() {
-        this.api = await loginWithQR(async (event: any) => {
-            if (event.type === LoginQRCallbackEventType.QRCodeGenerated) {
-                this.emit("qr_code", { qr_data: event.data });
-            }
-        });
-        console.error("✅ QR Login successful!");
     }
 
     private normalizeMessage(msg: any) {
@@ -279,6 +338,24 @@ class ZaloWorker {
 
         if (method === "get_rate_limiter_status") {
             return getRateLimiterStatus();
+        }
+
+        // Session health methods
+        if (method === "get_session_health") {
+            return {
+                status: this._sessionStatus,
+                ...getSessionHealthStatus(),
+            };
+        }
+
+        if (method === "trigger_qr_login") {
+            if (this._qrLoginInProgress) {
+                return { error: "QR login already in progress" };
+            }
+            this.qrLogin().catch((err: any) => {
+                console.error(`QR login failed: ${err.message}`);
+            });
+            return { initiated: true };
         }
         
         // Internal methods

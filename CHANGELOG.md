@@ -2,6 +2,20 @@
 
 ## [Unreleased] — Zalo Platform Integration
 
+### Added (Phase 3 nâng cao: Session & Auth — 2026-06-03)
+- **Cookie auto-save** — Worker automatically saves refreshed cookies every 5 minutes (configurable via `ZALO_COOKIE_SAVE_INTERVAL_MS`)
+- **Session health monitor** — Periodic session validity check every 10 minutes; detects auth failures and triggers alerts
+- **Auto QR re-login** — Automatically triggers QR re-login after 3 consecutive auth failures
+- **Session alerts** — Emits `session_alert` events to Python adapter (warning/expiring, critical/expired)
+- **IPC methods** — `get_session_health`, `trigger_qr_login` for monitoring and manual re-login
+- **Configurable intervals** — `ZALO_SESSION_CHECK_INTERVAL_MS`, `ZALO_COOKIE_SAVE_INTERVAL_MS`
+
+### Added (Phase 6: Testing & Documentation — 2026-06-03)
+- **Python unit tests** — `tests/gateway/test_zalo_access_control.py` (DM/group policy, mention detection, caching, image URL extraction, session alerts)
+- **TypeScript unit tests** — `src/__tests__/rate-limiter.test.ts` (rate limiter processing, backoff, access control parsing, mention detection)
+- **Vitest setup** — `vitest.config.ts` + `npm test` script in worker package.json
+- **User documentation** — `docs/zalo-user-guide.md` (quick setup, config reference, troubleshooting, session management, rate limiting)
+
 ### Added (Phase 5: Advanced Features — 2026-06-03)
 - **`send_message` tool support** — Zalo integrated into cross-platform messaging tool; agent can proactively send messages to Zalo from any platform
 - **Cron delivery** — Scheduled jobs can deliver results to Zalo via `send_message` tool

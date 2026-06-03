@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsc -w"
+    "dev": "tsc -w",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "jsqr": "^1.4.0",
@@ -23,6 +25,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/sharp": "^0.31.1",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
   }
 }

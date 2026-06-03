@@ -28,11 +28,35 @@ Tài liệu này theo dõi chi tiết các công việc đã thực hiện và k
 - [x] `send-typing` trigger trước khi agent phản hồi
 - [x] Auto-echo image URLs từ tin nhắn người dùng
 
-### Phase 3: Session & Auth (Hoàn thành: 100%)
+### Phase 3 nâng cao: Session & Auth (Hoàn thành: 100%)
 - [x] Luồng đăng nhập mã QR: Hiển thị URL trong terminal
 - [x] UX mã QR: Tự động lưu mã QR vào `~/.hermes/data/zalo_qr.png`
 - [x] Lưu trữ session: Tự động lưu/tải cookie vào `~/.hermes/data/zalo_session.json`
 - [x] Cơ chế tự động kết nối lại khi restart gateway
+- [x] Cookie auto-save: Tự động lưu cookies refreshed mỗi 5 phút (configurable via `ZALO_COOKIE_SAVE_INTERVAL_MS`)
+- [x] Session health monitor: Kiểm tra session mỗi 10 phút, phát hiện auth failure
+- [x] Auto QR re-login: Tự động trigger QR re-login khi session expired (3 consecutive failures)
+- [x] Session alerts: Gửi cảnh báo đến Python adapter khi session expiring/expired
+- [x] IPC methods: `get_session_health`, `trigger_qr_login`
+
+### Phase 6: Testing & Documentation (Hoàn thành: 100%)
+- [x] Unit tests cho adapter Python (`tests/gateway/test_zalo_access_control.py`)
+  - DM policy tests (open, closed, allowlist, denylist)
+  - Group policy tests (open, closed, mention gating)
+  - Mention detection & stripping tests
+  - Info caching tests (TTL expiry)
+  - Image URL extraction tests
+  - Session alert handling tests
+- [x] Unit tests cho worker TypeScript (`src/__tests__/rate-limiter.test.ts`)
+  - Rate limiter sequential processing
+  - Error counter reset on success
+  - Exponential backoff on consecutive errors
+  - Backoff cap at maxBackoffMs
+  - Access control config parsing
+  - DM/Group access decision tests
+  - Mention detection & stripping tests
+- [x] Vitest test framework setup với `vitest.config.ts`
+- [x] User documentation hoàn chỉnh (setup guide, config reference, troubleshooting)
 
 ### Phase 4: Access Control & Groups (Hoàn thành: 100%)
 - [x] Tích hợp với hệ thống allowlist/denylist của Hermes (`ZALO_ALLOWED_USERS`)
