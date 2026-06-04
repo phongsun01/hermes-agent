@@ -138,13 +138,82 @@ docker compose build
 
 ---
 
-## PHẦN 2B: Cập Nhật Hermes v0.15.2 + Phase 4 Access Control (v1.2 — 2026-06-01)
+## PHẦN 2B: Cập Nhật Hermes — Danh Sách File Bị Ảnh Hưởng
 
 ### 2B.1. Bối Cảnh
 
 Sau khi hoàn thành Phase 4 (Access Control & Groups) trên nền v0.14.0, tiến hành cập nhật Hermes lên bản phát hành chính thức **v0.15.2** (tag `v2026.5.29.2`) từ `NousResearch/hermes-agent` — chênh lệch ~100+ commit so với v0.14.0.
 
-### 2B.2. Commit Code Phase 4 Trước Khi Merge
+### 2B.2. Phân Loại File Khi Cập Nhật Hermes
+
+Khi merge upstream Hermes mới, các file tích hợp Zalo chia thành **2 nhóm**:
+
+#### Nhóm 1: File Zalo thuần túy (AN TOÀN — không xung đột)
+Đây là file mới hoàn toàn do chúng ta tạo, **không có trong upstream**, nên merge sẽ không bao giờ gây xung đột:
+
+| File | Mô tả |
+|------|-------|
+| `gateway/platforms/zalo.py` | Python adapter chính (subprocess manager, IPC, access control) |
+| `gateway/platforms/zalo/worker/package.json` | Node.js worker dependencies |
+| `gateway/platforms/zalo/worker/tsconfig.json` | TypeScript config |
+| `gateway/platforms/zalo/worker/vitest.config.ts` | Test config |
+| `gateway/platforms/zalo/worker/src/index.ts` | Worker entry point + IPC loop |
+| `gateway/platforms/zalo/worker/src/client.ts` | zca-js wrapper, session management, cookie auto-save, health monitor |
+| `gateway/platforms/zalo/worker/src/actions.ts` | 142 Zalo API actions + RateLimiter |
+| `gateway/platforms/zalo/worker/src/access-control.ts` | DM/group policy, mention gating |
+| `gateway/platforms/zalo/worker/src/credentials.ts` | Credential storage (HERMES_HOME-aware) |
+| `gateway/platforms/zalo/worker/src/media.ts` | Media handling, caching, formatting |
+| `gateway/platforms/zalo/worker/src/ipc.ts` | IPC protocol types |
+| `gateway/platforms/zalo/worker/dist/` | Compiled JS (build artifact) |
+| `tools/send_message_tool.py` | Cross-platform messaging (thêm branch Zalo) |
+| `agent/prompt_builder.py` | Platform hints (thêm "zalo") |
+| `docs/zalo-user-guide.md` | User documentation (English) |
+| `docs/zaloclaw-user-guide-vi.md` | User documentation (Tiếng Việt) |
+| `docs/zaloclaw-progress-log.md` | Progress tracking |
+| `docs/zalo-hermes-integration-plan.md` | Integration plan |
+| `tests/gateway/test_zalo_access_control.py` | Python unit tests |
+| `gateway/platforms/zalo/worker/src/__tests__/rate-limiter.test.ts` | TypeScript unit tests |
+
+#### Nhóm 2: File lõi Hermes (CÓ THỂ xung đột — cần kiểm tra)
+Đây là file có sẵn trong upstream mà chúng ta đã sửa để tích hợp Zalo. Khi merge, **có thể xuất hiện conflict markers**:
+
+| File | Nội dung sửa đổi | Mức độ xung đột |
+|------|------------------|-----------------|
+| `gateway/config.py` | Thêm `Platform.ZALO`, `_PLATFORM_CONNECTED_CHECKS`, block auto-enable `ZALO_ENABLED`, bridge `zalo:` config.yaml → env vars | ⚠️ Thấp — thường chỉ thêm dòng mới cuối file |
+| `gateway/run.py` | Đăng ký `ZaloAdapter` trong `_create_adapter`, allowlist mapping `ZALO_ALLOWED_USERS` | ⚠️ Trung bình — vùng `_create_adapter` hay thay đổi cấu trúc |
+| `Dockerfile` | Thêm bước `npm install` cho Zalo worker, CRLF fix cho s6-overlay scripts | ⚠️ Thấp — thêm RUN block mới |
+| `.gitignore` | Có thể xung đột line ending hoặc pattern mới từ upstream | ⚠️ Thấp — dễ giải quyết |
+
+### 2B.3. Quy Trình Merge An Toàn
+
+```powershell
+# 1. Commit toàn bộ code Zalo trước khi merge
+git add .
+git commit -m "feat(zalo): snapshot before upstream merge"
+git push origin main
+
+# 2. Fetch tag release mới từ upstream
+git fetch upstream --tags
+
+# 3. Merge tag cụ thể (ổn định hơn upstream/main)
+git merge v2026.5.29.2 --no-edit
+
+# 4. Nếu có xung đột, kiểm tra từng file Nhóm 2:
+#    - gateway/config.py: Giữ cả code Zalo + code upstream
+#    - gateway/run.py: Giữ code Zalo adapter trong _create_adapter + giữ upstream
+#    - Dockerfile: Giữ RUN block Zalo worker + giữ upstream
+#    - .gitignore: Giữ pattern mới từ upstream + giữ pattern Zalo nếu có
+
+# 5. Sau khi giải quyết xong
+git add .
+git commit --no-edit
+git push origin main
+
+# 6. Build lại Docker
+docker build -t hermes-agent:latest .
+```
+
+### 2B.4. Commit Code Phase 4 Trước Khi Merge
 
 ```powershell
 # Stage các file Zalo access control
@@ -158,7 +227,7 @@ git commit -m "feat(zalo): Phase 4 - Access Control & Groups (DM/group policy, m
 git push origin main
 ```
 
-### 2B.3. Fetch và Merge Tag Release
+### 2B.5. Fetch và Merge Tag Release
 
 ```powershell
 # Fetch tags mới nhất từ upstream
@@ -172,7 +241,7 @@ git tag -l | Select-String "2026.5.29"
 git merge v2026.5.29.2 --no-edit
 ```
 
-### 2B.4. Giải Quyết Xung Đột
+### 2B.6. Giải Quyết Xung Đột
 
 Có **2 file** xung đột:
 
@@ -191,7 +260,7 @@ git commit --no-edit
 git push origin main
 ```
 
-### 2B.5. Phase 4 — Access Control & Groups (Tổng Kết)
+### 2B.7. Phase 4 — Access Control & Groups (Tổng Kết)
 
 **File mới:**
 - `gateway/platforms/zalo/worker/src/access-control.ts` — Module AC TypeScript (230+ dòng)
@@ -216,12 +285,12 @@ git push origin main
 | Runtime config update qua IPC | ✅ |
 | Status reporting | ✅ |
 
-### 2B.6. Build Lại Docker
+### 2B.8. Build Lại Docker
 
 ```powershell
 cd D:\Antigravity\Hermes
-docker compose build
-docker compose up -d
+docker build -t hermes-agent:latest .
+docker run -d --name hermes -v hermes-data:/opt/data --restart unless-stopped hermes-agent:latest gateway
 ```
 
 **Kết quả:**
