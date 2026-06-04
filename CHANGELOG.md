@@ -2,6 +2,17 @@
 
 ## [Unreleased] — Zalo Platform Integration
 
+### Added (2026-06-04)
+- **Vietnamese user guide** — `docs/zaloclaw-user-guide-vi.md` (full translation with Docker setup, QR login, config reference, troubleshooting)
+- **Integration walkthrough update** — `docs/zaloclaw-integration-walkthrough-vi.md` Part 2B: file impact analysis for future Hermes merges (2 groups: safe Zalo files vs core files that may conflict)
+- **Gateway auto-enable for Zalo** — `gateway/config.py` now auto-enables Zalo when `ZALO_ENABLED=true` or `zalo.enabled: true` in config.yaml; full config.yaml → env var bridge for all Zalo settings (dm_policy, group_policy, allowlisted_users, bot_name, mention_patterns, etc.)
+- **Docker single-container consolidation** — Merged `hermes` + `hermes-dashboard` into single `hermes-agent:latest` container with s6 supervision
+
+### Changed (2026-06-04)
+- **Cookie save interval**: 5 minutes → **30 minutes** (`ZALO_COOKIE_SAVE_INTERVAL_MS` default `1800000`)
+- **Session health check interval**: 10 minutes → **60 minutes** (`ZALO_SESSION_CHECK_INTERVAL_MS` default `3600000`)
+- Both intervals are zero-network operations (memory read + local file write only)
+
 ### Added (Phase 3 nâng cao: Session & Auth — 2026-06-03)
 - **Cookie auto-save** — Worker automatically saves refreshed cookies every 5 minutes (configurable via `ZALO_COOKIE_SAVE_INTERVAL_MS`)
 - **Session health monitor** — Periodic session validity check every 10 minutes; detects auth failures and triggers alerts
@@ -80,8 +91,14 @@ zalo:
 | `gateway/platforms/zalo/worker/src/access-control.ts` | Access control module (new) |
 | `gateway/platforms/zalo/worker/src/actions.ts` | Full 142-action dispatch with zca-js v2.1.2 signatures |
 | `gateway/platforms/zalo/worker/src/media.ts` | Media formatting, caching, download, detection (new) |
-| `gateway/config.py` | Platform.ZALO enum member |
+| `gateway/platforms/zalo/worker/src/client.ts` | Session management, cookie auto-save (30min), health monitor (60min) |
+| `gateway/config.py` | Platform.ZALO enum, auto-enable block, config.yaml → env bridge |
 | `gateway/run.py` | Zalo adapter registration |
+| `tools/send_message_tool.py` | Cross-platform messaging (Zalo branch) |
+| `agent/prompt_builder.py` | Platform hints (Zalo entry) |
+| `docs/zalo-user-guide.md` | English user guide |
+| `docs/zaloclaw-user-guide-vi.md` | Vietnamese user guide (new) |
 | `docs/zalo-hermes-integration-plan.md` | Updated Phase 2 status with full action list |
 | `docs/zaloclaw-progress-log.md` | Updated progress to 90% |
+| `docs/zaloclaw-integration-walkthrough-vi.md` | File impact analysis for future merges |
 | `CHANGELOG.md` | This file |

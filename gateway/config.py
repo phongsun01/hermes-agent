@@ -1061,6 +1061,44 @@ def load_gateway_config() -> GatewayConfig:
                         gaf = ",".join(str(v) for v in gaf)
                     os.environ["WHATSAPP_GROUP_ALLOWED_USERS"] = str(gaf)
 
+            # Zalo settings → env vars (env vars take precedence)
+            zalo_cfg = yaml_cfg.get("zalo", {})
+            if isinstance(zalo_cfg, dict):
+                if "enabled" in zalo_cfg and not os.getenv("ZALO_ENABLED"):
+                    os.environ["ZALO_ENABLED"] = str(zalo_cfg["enabled"]).lower()
+                if "dm_policy" in zalo_cfg and not os.getenv("ZALO_DM_POLICY"):
+                    os.environ["ZALO_DM_POLICY"] = str(zalo_cfg["dm_policy"]).lower()
+                if "group_policy" in zalo_cfg and not os.getenv("ZALO_GROUP_POLICY"):
+                    os.environ["ZALO_GROUP_POLICY"] = str(zalo_cfg["group_policy"]).lower()
+                if "require_mention" in zalo_cfg and not os.getenv("ZALO_REQUIRE_MENTION"):
+                    os.environ["ZALO_REQUIRE_MENTION"] = str(zalo_cfg["require_mention"]).lower()
+                af = zalo_cfg.get("allowlisted_users") or zalo_cfg.get("allowed_users")
+                if af is not None and not os.getenv("ZALO_ALLOWLISTED_USERS"):
+                    if isinstance(af, list):
+                        af = ",".join(str(v) for v in af)
+                    os.environ["ZALO_ALLOWLISTED_USERS"] = str(af)
+                df = zalo_cfg.get("denylisted_users") or zalo_cfg.get("denied_users")
+                if df is not None and not os.getenv("ZALO_DENYLISTED_USERS"):
+                    if isinstance(df, list):
+                        df = ",".join(str(v) for v in df)
+                    os.environ["ZALO_DENYLISTED_USERS"] = str(df)
+                ag = zalo_cfg.get("allowlisted_groups") or zalo_cfg.get("allowed_groups")
+                if ag is not None and not os.getenv("ZALO_ALLOWLISTED_GROUPS"):
+                    if isinstance(ag, list):
+                        ag = ",".join(str(v) for v in ag)
+                    os.environ["ZALO_ALLOWLISTED_GROUPS"] = str(ag)
+                dg = zalo_cfg.get("denylisted_groups") or zalo_cfg.get("denied_groups")
+                if dg is not None and not os.getenv("ZALO_DENYLISTED_GROUPS"):
+                    if isinstance(dg, list):
+                        dg = ",".join(str(v) for v in dg)
+                    os.environ["ZALO_DENYLISTED_GROUPS"] = str(dg)
+                if "bot_name" in zalo_cfg and not os.getenv("ZALO_BOT_NAME"):
+                    os.environ["ZALO_BOT_NAME"] = str(zalo_cfg["bot_name"])
+                if "bot_user_id" in zalo_cfg and not os.getenv("ZALO_BOT_USER_ID"):
+                    os.environ["ZALO_BOT_USER_ID"] = str(zalo_cfg["bot_user_id"])
+                if "mention_patterns" in zalo_cfg and not os.getenv("ZALO_MENTION_PATTERNS"):
+                    os.environ["ZALO_MENTION_PATTERNS"] = json.dumps(zalo_cfg["mention_patterns"])
+
             # Signal settings → env vars (env vars take precedence)
             signal_cfg = yaml_cfg.get("signal", {})
             if isinstance(signal_cfg, dict):
@@ -1778,6 +1816,14 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
         yuanbao_group_allow_from = os.getenv("YUANBAO_GROUP_ALLOW_FROM")
         if yuanbao_group_allow_from:
             extra["group_allow_from"] = yuanbao_group_allow_from
+
+    # Zalo (worker-based, no token needed — QR login)
+    # Auto-enable when ZALO_ENABLED=true or when worker directory exists
+    zalo_enabled_env = os.getenv("ZALO_ENABLED", "").lower()
+    if zalo_enabled_env == "true":
+        if Platform.ZALO not in config.platforms:
+            config.platforms[Platform.ZALO] = PlatformConfig()
+        config.platforms[Platform.ZALO].enabled = True
 
     # Session settings
     idle_minutes = os.getenv("SESSION_IDLE_MINUTES")
