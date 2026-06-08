@@ -370,3 +370,148 @@ docker compose up -d
 - **Commit code Zalo trước khi merge** — luôn push code của mình lên fork trước, tránh mất work khi có conflict.
 - **Xung đột `gateway/run.py`** thường chỉ là conflict markers bao quanh vùng `_create_adapter` — giữ code Zalo + giữ code upstream, xóa markers là xong.
 - **Docker cache** giúp build nhanh — chỉ các file thay đổi (`zalo.py`, `zalo/worker/`) rebuild lại, phần còn lại dùng cache.
+
+---
+
+## PHẦN 6: Di Chuyển Sang Máy Khác (Migration)
+
+### 6.1. Bối Cảnh
+
+Bạn đã có bản Hermes tích hợp ZaloClaw (Hermes v0.15.2 + Zalo) trên **Machine A**, giờ muốn cài đặt lên **Machine B** — máy này đã có sẵn một bản Hermes gốc từ `NousResearch/hermes-agent` (chưa có Zalo).
+
+Có **2 cách** thực hiện:
+
+| Cách | Ưu điểm | Nhược điểm |
+|------|---------|------------|
+| **Cách 1: Clone fork của bạn** (khuyên dùng) | Zalo có sẵn, không cần merge, không xung đột | Phải clone repo mới |
+| **Cách 2: Merge vào bản upstream có sẵn** | Giữ nguyên thư mục Hermes hiện tại | Phải giải quyết conflict |
+
+---
+
+### 6.2. Cách 1: Clone Fork Của Bạn (Khuyên Dùng)
+
+Fork của bạn (`phongsun01/hermes-agent`) đã chứa toàn bộ code ZaloClaw trên nền Hermes v0.15.2. Chỉ cần clone là xong.
+
+**Bước 1: Clone fork**
+```powershell
+git clone https://github.com/phongsun01/hermes-agent.git
+cd hermes-agent
+git remote add upstream https://github.com/NousResearch/hermes-agent.git
+```
+
+**Bước 2: Cài dependencies**
+```powershell
+# Python (nếu chạy native, không dùng Docker)
+pip install -e .
+
+# Node.js worker — build TypeScript
+cd gateway/platforms/zalo/worker
+npm install
+npm run build
+cd ../../../..
+```
+
+**Bước 3: Copy session Zalo (tùy chọn — để khỏi quét QR lại)**
+```powershell
+# Từ Machine A, copy file session sang Machine B
+# (Dùng USB, network share, scp, hoặc bất kỳ cách nào bạn muốn)
+# Đặt file vào đúng vị trí:
+# %USERPROFILE%\.hermes\data\zalo_session.json
+```
+
+> [!NOTE]
+> Nếu không copy `zalo_session.json`, bạn chỉ cần quét QR lại từ đầu — bot sẽ tự lưu session vào file này sau khi quét thành công.
+
+**Bước 4: Cấu hình Zalo**
+
+Thêm vào `~/.hermes/config.yaml`:
+```yaml
+platforms:
+  zalo: {}
+```
+
+Nếu muốn giới hạn người dùng được phép chat với bot:
+```powershell
+# Đặt trong .env hoặc config.yaml
+ZALO_ALLOWED_USERS="user_id_1,user_id_2"
+```
+
+**Bước 5: Build và chạy Docker (nếu dùng Docker)**
+```powershell
+docker compose build
+docker compose up -d
+```
+
+**Bước 6: Kiểm tra**
+```powershell
+# Xem log để xác nhận Zalo worker khởi động
+docker compose logs -f | Select-String "Zalo"
+```
+
+Nếu thấy dòng `QR code saved to .../zalo_qr.png` → mở file ảnh và quét bằng điện thoại.
+
+---
+
+### 6.3. Cách 2: Merge Vào Bản Upstream Có Sẵn
+
+Dùng khi Machine B đã có sẵn thư mục `hermes-agent` clone từ `NousResearch` và bạn muốn giữ nguyên.
+
+**Bước 1: Thêm remote fork**
+```powershell
+cd D:\path\to\hermes-agent  # thư mục Hermes trên Machine B
+git remote add fork https://github.com/phongsun01/hermes-agent.git
+git fetch fork
+```
+
+**Bước 2: Merge code Zalo từ fork**
+```powershell
+git merge fork/main --no-edit
+```
+
+**Bước 3: Giải quyết xung đột (nếu có)**
+
+Thường chỉ 2 file xung đột:
+
+| File | Giải pháp |
+|------|-----------|
+| `gateway/run.py` | Giữ code Zalo adapter trong `_create_adapter` + giữ code upstream, xóa conflict markers |
+| `.gitignore` | Giữ pattern mới từ cả hai phía, xóa markers |
+
+```powershell
+# Sau khi sửa xong
+git add gateway/run.py .gitignore
+git commit --no-edit
+```
+
+**Bước 4: Build Zalo worker**
+```powershell
+cd gateway/platforms/zalo/worker
+npm install
+npm run build
+cd ../../../..
+```
+
+**Bước 5: Copy session Zalo + cấu hình + build Docker**
+
+Giống hệt Bước 3-6 của Cách 1.
+
+---
+
+### 6.4. Checklist Sau Khi Di Chuyển
+
+- [ ] `git log --oneline -5` — xác nhận có commit ZaloClaw
+- [ ] `gateway/platforms/zalo.py` tồn tại
+- [ ] `gateway/platforms/zalo/worker/dist/` tồn tại (đã build)
+- [ ] `zalo: {}` trong `platforms:` của `config.yaml`
+- [ ] `zalo_session.json` đã copy (hoặc chuẩn bị quét QR)
+- [ ] Docker build thành công / native import không lỗi
+- [ ] Bot nhận được tin nhắn Zalo đầu tiên
+
+---
+
+### Kinh Nghiệm Từ Lần Merge v0.15.2
+
+- **Nên merge theo tag release** (`git merge v2026.5.29.2`) thay vì `upstream/main` để có phiên bản ổn định, đã được test.
+- **Commit code Zalo trước khi merge** — luôn push code của mình lên fork trước, tránh mất work khi có conflict.
+- **Xung đột `gateway/run.py`** thường chỉ là conflict markers bao quanh vùng `_create_adapter` — giữ code Zalo + giữ code upstream, xóa markers là xong.
+- **Docker cache** giúp build nhanh — chỉ các file thay đổi (`zalo.py`, `zalo/worker/`) rebuild lại, phần còn lại dùng cache.

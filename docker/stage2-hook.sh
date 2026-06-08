@@ -231,4 +231,11 @@ if [ -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}" ] && \
     fi
 fi
 
+# --- Clean up stale QR codes on every restart ---
+# Old QR files accumulate and can confuse the login flow. Remove them
+# before the Zalo worker starts so a fresh QR is always generated.
+for f in "$HERMES_HOME/data/zalo_qr.png" "$HERMES_HOME/data/zalo_qr_"*.png; do
+    [ -f "$f" ] && rm -f "$f"
+done
+
 echo "[stage2] Setup complete; starting user services"
