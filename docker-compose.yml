@@ -37,6 +37,7 @@ services:
       - API_SERVER_HOST=0.0.0.0
       - API_SERVER_KEY=zalo-hermes-secret-key-123456
       - HERMES_GATEWAY_BOOTSTRAP_STATE=running
+      - HERMES_GATEWAY_NO_SUPERVISE=1
       - ZALO_PLUGIN_URL=http://host.docker.internal:8787
       - ZALO_ALLOWED_USERS=2825656851207986406
       - ZALO_GROUP_MODE=mention
@@ -69,3 +70,17 @@ services:
     # Accessible from host at http://localhost:9119
     # --insecure is required when binding to non-localhost address inside Docker
     command: ["dashboard", "--host", "0.0.0.0", "--port", "9119", "--no-open", "--insecure"]
+
+  lightrag:
+    image: ghcr.io/hkuds/lightrag:latest
+    container_name: lightrag
+    restart: unless-stopped
+    ports:
+      - "9621:9621"
+    volumes:
+      - lightrag_data:/data
+    env_file:
+      - .env.lightrag
+
+volumes:
+  lightrag_data:

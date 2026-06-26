@@ -1,6 +1,7 @@
 import json
+import os
 
-path = "/opt/data/cron/jobs.json"
+path = os.environ.get("CRON_JOBS_FILE", os.path.expanduser("~/.hermes/cron/jobs.json"))
 with open(path, "r", encoding="utf-8") as f:
     data = json.load(f)
 
@@ -83,6 +84,20 @@ new_jobs = [
         "schedule": {"kind": "cron", "expr": "5 10 * * 5", "display": "5 10 * * 5"},
         "schedule_display": "5 10 * * 5 (17h05 VN thu 6)",
         "script": "congchuc/congchuc_report_excel.sh",
+        "no_agent": True,
+        "deliver": "zalo",
+        "origin": origin,
+        "enabled": True,
+        "state": "scheduled",
+        "skills": [],
+        "skill": None,
+    },
+    {
+        "id": "f9a8b7c6d5e4",
+        "name": "Du thao van ban F9",
+        "schedule": {"kind": "zalo_command", "expr": "^(dự thảo|du thao|draft)\\s+(\\d+)", "display": "Lệnh Zalo: dự thảo <số_đến>"},
+        "schedule_display": "Zalo Command: dự thảo <số_đến>",
+        "script": "congchuc/congchuc_draft.py --so-den {2}",
         "no_agent": True,
         "deliver": "zalo",
         "origin": origin,

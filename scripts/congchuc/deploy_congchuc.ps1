@@ -3,6 +3,8 @@ docker exec hermes mkdir -p /opt/data/scripts/congchuc
 docker cp D:\Antigravity\Hermes\scripts\congchuc\congchuc_scrape.py hermes:/opt/data/scripts/congchuc/congchuc_scrape.py
 docker cp D:\Antigravity\Hermes\scripts\congchuc\congchuc_vbdi_scrape.py hermes:/opt/data/scripts/congchuc/congchuc_vbdi_scrape.py
 docker cp D:\Antigravity\Hermes\scripts\congchuc\congvan_status.py hermes:/opt/data/scripts/congchuc/congvan_status.py
+docker cp D:\Antigravity\Hermes\scripts\congchuc\congchuc_draft.py hermes:/opt/data/scripts/congchuc/congchuc_draft.py
+docker cp D:\Antigravity\Hermes\scripts\congchuc\congchuc_summarize.py hermes:/opt/data/scripts/congchuc/congchuc_summarize.py
 docker cp D:\Antigravity\Hermes\scripts\congchuc\congchuc_action.py hermes:/opt/data/scripts/congchuc/congchuc_action.py
 docker cp D:\Antigravity\Hermes\scripts\congchuc\congchuc_report.py hermes:/opt/data/scripts/congchuc/congchuc_report.py
 docker cp D:\Antigravity\Hermes\scripts\congchuc\congchuc_report_weekly.sh hermes:/opt/data/scripts/congchuc/congchuc_report_weekly.sh

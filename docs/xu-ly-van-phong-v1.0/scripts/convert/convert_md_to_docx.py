@@ -10,6 +10,8 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import re
+import sys
+import yaml
 
 def set_run_font(run, font_name='Times New Roman', font_size=12, bold=False, italic=False):
     """Set font properties for a run"""
@@ -86,12 +88,70 @@ def add_mixed_paragraph(doc, text, alignment='justify', base_size=12, spacing_af
     
     return para
 
+def add_nd30_header(doc, org_parent, org_name, so_ky_hieu, date_str):
+    """Add ND 30 standard 2-column header"""
+    table = doc.add_table(rows=2, cols=2)
+    table.autofit = False
+    table.columns[0].width = Cm(8)
+    table.columns[1].width = Cm(8.5)
+    
+    # Row 0: Org vs Quốc hiệu
+    cell_00 = table.cell(0, 0)
+    p00 = cell_00.paragraphs[0]
+    p00.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p00.paragraph_format.space_after = Pt(0)
+    if org_parent:
+        r_parent = p00.add_run(org_parent.upper() + '\n')
+        set_run_font(r_parent, font_size=12)
+    r_org = p00.add_run(org_name.upper())
+    set_run_font(r_org, font_size=13, bold=True)
+    
+    cell_01 = table.cell(0, 1)
+    p01 = cell_01.paragraphs[0]
+    p01.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p01.paragraph_format.space_after = Pt(0)
+    r_qh = p01.add_run('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\n')
+    set_run_font(r_qh, font_size=13, bold=True)
+    r_td = p01.add_run('Độc lập - Tự do - Hạnh phúc')
+    set_run_font(r_td, font_size=14, bold=True)
+    
+    # Row 1: Số ký hiệu vs Ngày tháng
+    cell_10 = table.cell(1, 0)
+    p10 = cell_10.paragraphs[0]
+    p10.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_so = p10.add_run(so_ky_hieu)
+    set_run_font(r_so, font_size=13)
+    
+    cell_11 = table.cell(1, 1)
+    p11 = cell_11.paragraphs[0]
+    p11.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    r_date = p11.add_run(date_str)
+    set_run_font(r_date, font_size=13, italic=True)
+    
+    doc.add_paragraph()
+
 def convert_md_to_docx(md_file, output_file):
     """Convert MD file to DOCX with proper formatting"""
     
     # Read MD content
     with open(md_file, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+        content = f.read()
+    
+    # Parse YAML frontmatter if exists
+    frontmatter = {}
+    if content.startswith('---'):
+        parts = content.split('---', 2)
+        if len(parts) >= 3:
+            try:
+                frontmatter = yaml.safe_load(parts[1])
+                lines = parts[2].splitlines()
+            except Exception as e:
+                print(f"Error parsing YAML frontmatter: {e}")
+                lines = content.splitlines()
+        else:
+            lines = content.splitlines()
+    else:
+        lines = content.splitlines()
     
     # Create new document
     doc = Document()
@@ -104,6 +164,16 @@ def convert_md_to_docx(md_file, output_file):
     section.right_margin = Cm(2)
     section.top_margin = Cm(1.5)
     section.bottom_margin = Cm(2)
+    
+    # Process ND30 header if requested
+    if frontmatter.get('nd30_header'):
+        add_nd30_header(
+            doc,
+            frontmatter.get('org_parent', ''),
+            frontmatter.get('org_name', ''),
+            frontmatter.get('so_ky_hieu', 'Số:      /'),
+            frontmatter.get('date', 'Ngày      tháng      năm 202...')
+        )
     
     # Process lines
     i = 0
@@ -240,7 +310,7 @@ def convert_md_to_docx(md_file, output_file):
     print(f"Created: {output_file}")
 
 if __name__ == '__main__':
-    convert_md_to_docx(
-        'don-to-cao-scp-tmart-hoan-chinh.md',
-        'don-to-cao-scp-tmart-FINAL.docx'
-    )
+    if len(sys.argv) < 3:
+        print("Usage: python convert_md_to_docx.py <input.md> <output.docx>")
+        sys.exit(1)
+    convert_md_to_docx(sys.argv[1], sys.argv[2])

@@ -109,6 +109,21 @@ if (!listener.retryCount["1006"]) {
 
 **Cần restart bridge** để load fix: Ctrl+C trong terminal watchdog → `node bridge-watchdog.js`
 
+### 25. Slash Command Skill execution environment (WSL/Docker) (2026-06-25)
+
+**Vấn đề:** Khi tạo một AI Skill (như `/cc`) bằng file `SKILL.md` để user giao tiếp qua bot Zalo, nếu hướng dẫn Agent chạy các công cụ bằng Windows PowerShell (vd: `powershell -Command` với đường dẫn `C:\Users\Desktop\...`), Agent Zalo sẽ báo lỗi.
+
+**Root cause:**
+- Gateway và Agent phục vụ Zalo Bot đang chạy trực tiếp bên trong container Docker/WSL2 (Linux) - cụ thể là container `hermes`.
+- Các Agent này không có tool `run_command` tương tác với PowerShell trên host Windows, mà dùng terminal Linux cục bộ.
+- File system được mount vào `/opt/data` hoặc truy cập qua home directory `~/.hermes`, không phải ổ `C:\`.
+
+**Giải pháp (Lesson Learned cho thiết kế Skill):**
+- Khi viết file `SKILL.md` phục vụ qua Zalo (Gateway), phải viết hướng dẫn thực thi (Action) tương thích với môi trường **Linux/Docker**.
+- Dùng `python ~/.hermes/scripts/...` thay vì `C:\Users\...`
+- Bỏ các wrapper lệnh như `docker exec hermes ...` vì bản thân Agent Zalo đã nằm TRONG container `hermes` rồi.
+- *Lưu ý: Nếu thay đổi, thêm bớt Skill mới (`SKILL.md`), cần restart Gateway container (`docker restart hermes`) để Gateway load lại danh sách Slash Command Registry.*
+
 ---
 
 ## 🔧 Các sửa đổi đã áp dụng (2026-06-12 v3 - Stability Round)
@@ -933,7 +948,24 @@ Nếu Windows restart, bridge watchdog không tự start lại (vì chạy trong
 nssm install HermesZaloBridge "C:\Program Files\nodejs\node.exe" "D:\Antigravity\hermes-zalo-plugin\bridge-watchdog.js"
 ```
 
-## 📝 Known Issues & Workarounds
+## 📝 Known Issues
+
+### 6. s6-log lock file conflict trên volume mount (Gây treo Gateway và Bridge)
+
+**Vấn đề:** `s6-log: fatal: unable to lock /opt/data/logs/gateways/default/lock: Resource busy`. Khi container restart (hoặc bị force kill), tiến trình cũ để lại lock file trên volume mount của Windows -> s6-log khởi động lại không acquire được lock. 
+
+**Tác động nghiêm trọng:** S6-log bị kẹt khiến bộ đệm (pipe buffer) của luồng stdout bị đầy. Khi buffer đầy, tiến trình Gateway bên trong container bị block lại và **treo cứng** toàn bộ API. Kéo theo đó, Webhook từ Zalo Bridge gửi tới Gateway bị timeout liên tục, dẫn tới tiến trình Node.js của Zalo Bridge (`server.js`) cũng có thể bị treo hoặc kẹt kết nối. 
+
+**Cách xử lý vĩnh viễn:** Bỏ qua cơ chế `s6-log` supervision để ghi log trực tiếp ra stdout mà không qua pipe.
+- Sửa file `docker-compose.yml`, thêm biến môi trường vào container `gateway`:
+```yaml
+      - HERMES_GATEWAY_NO_SUPERVISE=1
+```
+- Recreate lại container:
+```bash
+docker rm -f hermes
+docker compose up -d gateway
+```
 
 ### 1. Process node cũ không kill được trên Windows
 

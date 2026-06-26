@@ -47,6 +47,10 @@ if "/Default.aspx" in DOCS_URL:
 else:
     BASE_URL = DOCS_URL.rstrip("/")
 LOGIN_URL = BASE_URL + "/SSO/Login.aspx"
+# URL of the VB đến cho xử lý grid (has ImageButton1 download buttons)
+# Default: tabid=5725 (derived from button IDs seen: dnn_ctr5725_VBDen_SoVanBan_grdVBDenChoXuLy)
+VBDEN_DOWNLOAD_URL = os.environ.get("CONGVAN_VBDEN_URL", BASE_URL + "/Default.aspx?tabid=5725")
+
 
 # State directory
 STATE_DIR = os.path.join(_hermes_home, "cron", "cong-van-den")
@@ -627,25 +631,36 @@ def main():
             print(f"[LỖI] Không lấy được văn bản nào")
             sys.exit(1)
 
-    # Silent exit if no docs at all
-    if not docs:
-        sys.exit(0)
-
     docs = dedup_documents(docs)
 
     # Load state, find new docs, save updated state
     state = load_state()
+    
+    current_ids = set((d.get('so_den', '') or d.get('so_ky_hieu', '')) for d in docs if d.get('so_den', '') or d.get('so_ky_hieu', ''))
+    
+    # Reconcile missing docs: if a doc is "new" in state but no longer on the web, mark as done
+    reconciled_any = False
+    now_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    for sid, sdoc in state.get('documents', {}).items():
+        if sdoc.get('status') == 'new' and sid not in current_ids:
+            sdoc['status'] = 'done'
+            sdoc['note'] = (sdoc.get('note', '') + " [Tự động: Đã xử lý trên web]").strip()
+            sdoc['status_updated_at'] = now_ts
+            reconciled_any = True
+            
+    # Silent exit if no docs at all AND no reconciliation happened
+    if not docs and not reconciled_any:
+        sys.exit(0)
+
     seen = set(state.get('seen_ids', []))
     new_docs = [d for d in docs if (d.get('so_den', '') or d.get('so_ky_hieu', '')) not in seen]
 
-    current_ids = set((d.get('so_den', '') or d.get('so_ky_hieu', '')) for d in docs if d.get('so_den', '') or d.get('so_ky_hieu', ''))
     old_seen = set(state.get('seen_ids', []))
     state['seen_ids'] = list(old_seen | current_ids)
     state['last_check'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     state['last_count'] = len(docs)
     # Save document details for new VBs
     state.setdefault('documents', {})
-    now_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     for d in docs:
         key = d.get('so_den', '') or d.get('so_ky_hieu', '')
         if key and key not in state['documents']:
@@ -727,13 +742,15 @@ def main():
         if _time_remaining() < 15:
             print(f"[SKIP] Chỉ còn {_time_remaining():.0f}s, bỏ qua attachment download", file=sys.stderr)
         else:
-            # Skip attachment download for docs that are being auto-finished
             attachment_docs = [d for d in new_docs if str(d.get('so_den', '')) not in auto_finish_list]
-            if not attachment_docs:
-                for sid, d in state.get('documents', {}).items():
-                    if d.get('attachments') and not d.get('attachments_complete') and str(sid) not in auto_finish_list:
-                        attachment_docs.append({**d, 'so_den': str(sid)})
-                attachment_docs = attachment_docs[:5]
+            current_so_dens = {str(d.get('so_den', '')) for d in attachment_docs}
+            backlog = []
+            for sid, d in state.get('documents', {}).items():
+                if d.get('status') == 'new' and not d.get('attachments_complete') and str(sid) not in auto_finish_list and str(sid) not in current_so_dens:
+                    backlog.append({**d, 'so_den': str(sid)})
+            backlog.sort(key=lambda x: int(x.get('so_den', '0') or '0'), reverse=True)
+            attachment_docs.extend(backlog)
+            attachment_docs = attachment_docs[:5]
             if attachment_docs:
                 attachment_results = download_attachments_for_docs(attachment_docs, state, STATE_DIR)
                 if attachment_results:
@@ -894,6 +911,33 @@ def download_attachments_for_docs(new_docs, state, state_dir):
                 
                 # Fresh tab for each VB — avoids page-state carryover
                 page = login_context.new_page()
+                
+                # Must select unit first — storage_state only saves login cookies,
+                # not the unit selection/session that controls which docs are shown.
+                if UNITS:
+                    page.goto(BASE_URL + "/Default.aspx?tabid=56", timeout=60000, wait_until='domcontentloaded')
+                    try: page.wait_for_load_state("networkidle", timeout=10000)
+                    except: pass
+                    page.wait_for_timeout(2000)
+                    try:
+                        sel_el = page.query_selector('select[id$=ddlChonDonVi]')
+                        if sel_el:
+                            unit_spec = UNITS[0]
+                            val = unit_spec if unit_spec.isdigit() else None
+                            if val:
+                                sel_el.select_option(value=val)
+                            else:
+                                for o in sel_el.query_selector_all('option'):
+                                    if unit_spec.lower() in o.inner_text().lower():
+                                        sel_el.select_option(value=o.get_attribute('value'))
+                                        break
+                            page.wait_for_timeout(2000)
+                            try: page.wait_for_load_state("networkidle", timeout=10000)
+                            except: pass
+                            print(f"[ATTACHMENT] Unit selected: {UNITS[0]}", file=sys.stderr)
+                    except Exception as e:
+                        print(f"[ATTACHMENT] Unit select failed: {e}", file=sys.stderr)
+                
                 page.goto(DOCS_URL, timeout=60000, wait_until='domcontentloaded')
                 page.wait_for_timeout(3000)
                 try: page.wait_for_selector(".rgLoadingDiv", state="hidden", timeout=10000)
@@ -901,25 +945,40 @@ def download_attachments_for_docs(new_docs, state, state_dir):
                 try: page.wait_for_load_state("networkidle", timeout=20000)
                 except: pass
                 
-                # Find the row with "Tải tất cả file" button for this VB
+                # Find the row with download button for this VB
+                # Paginate through grid pages (same AJAX pattern as pw_get_documents)
                 dl_btn = None
+                dl_row = None
                 for page_idx in range(20):
-                    rows = page.query_selector_all('table.rgMasterTable > tbody > tr.rgRow, table.rgMasterTable > tbody > tr.rgAltRow')
+                    rows = page.query_selector_all('table.rgMasterTable > tbody > tr')
                     for row in rows:
-                        link = row.query_selector('a')
-                        if link and link.inner_text().strip() == so_den:
-                            dl_btn = row.query_selector('input[title*="Tải tất cả"]')
+                        cols = row.query_selector_all('td')
+                        for col in cols:
+                            if col.inner_text().strip() == so_den:
+                                dl_row = row
+                                dl_btn = row.query_selector('input[id*="ImageButton1"]')
+                                break
+                        if dl_btn:
                             break
                     if dl_btn:
+                        print(f"[ATTACHMENT] Found {so_den} on grid page {page_idx + 1}", file=sys.stderr)
                         break
                     next_btn = page.query_selector('.rgPageNext:not(.rgDisabled)')
                     if not next_btn:
                         break
                     next_btn.click()
-                    page.wait_for_timeout(3000)
+                    page.wait_for_timeout(2000)
+                    # Wait for AJAX grid reload (same as pw_get_documents)
+                    try: page.wait_for_selector(".rgLoadingDiv", state="hidden", timeout=10000)
+                    except: pass
+                    try: page.wait_for_load_state("networkidle", timeout=15000)
+                    except: pass
                 
                 if not dl_btn:
-                    print(f"[ATTACHMENT] Số đến {so_den} not found or no download button", file=sys.stderr)
+                    print(f"[ATTACHMENT] Số đến {so_den} không tìm thấy trên grid hoặc không có nút tải", file=sys.stderr)
+                    # NOTE: Do NOT mark attachments_complete=True here.
+                    # VB may be on a different page load, or temporarily unavailable.
+                    # Only mark complete after a successful download.
                     page.close()
                     continue
                 
@@ -955,6 +1014,21 @@ def download_attachments_for_docs(new_docs, state, state_dir):
                             })
                             print(f"[ATTACHMENT]   Extracted: {safe_name} ({os.path.getsize(save_path)} bytes)", file=sys.stderr)
                     
+                    # Auto ingest attachments into LightRAG
+                    if os.environ.get("CONGVAN_DRAFT_MODE") == "lightrag":
+                        try:
+                            import subprocess
+                            ingest_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lightrag", "ingest_corpus.py")
+                            python_bin = sys.executable
+                            if os.path.exists("/opt/hermes/.venv/bin/python"):
+                                python_bin = "/opt/hermes/.venv/bin/python"
+                            elif os.path.exists(os.path.join(os.path.dirname(sys.executable), "python.exe")): # fallback Windows
+                                python_bin = sys.executable
+                            subprocess.Popen([python_bin, ingest_script, att_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            print(f"[ATTACHMENT] VB {so_den}: Triggered LightRAG ingestion", file=sys.stderr)
+                        except Exception as e:
+                            print(f"[ATTACHMENT] Failed to trigger LightRAG ingestion: {e}", file=sys.stderr)
+
                     existing_names = {a.get('display_name', '') for a in existing}
                     new_names = {a['display_name'] for a in doc_attachments}
                     if existing_names == new_names:
@@ -1099,4 +1173,46 @@ def fetch_vai_tro_for_docs(new_docs, state):
     return auto_finish_docs
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--download-only', metavar='SO_DEN', default=None,
+                        help='Chỉ tải file đính kèm cho 1 VB theo số đến, không chạy scrape toàn bộ')
+    args, _ = parser.parse_known_args()
+
+    if args.download_only:
+        so_den = args.download_only.strip()
+        _script_start_time = _time.monotonic()  # needed by _time_remaining() inside download fn
+        state = load_state()
+        # Build a minimal doc entry from state (or bare minimum if not found)
+        doc_data = state.get('documents', {}).get(so_den, {})
+        doc = {
+            'so_den': so_den,
+            'so_ky_hieu': doc_data.get('so_ky_hieu', ''),
+            'tac_gia': doc_data.get('tac_gia', ''),
+            'trich_yeu': doc_data.get('trich_yeu', ''),
+        }
+        # Force re-download even if already complete
+        if so_den in state.get('documents', {}):
+            state['documents'][so_den]['attachments_complete'] = False
+        results = download_attachments_for_docs([doc], state, STATE_DIR)
+        save_state(state)
+        if results and so_den in results:
+            files = results[so_den]
+            print(f"[TAI] VB #{so_den}: Đã tải {len(files)} file(s):")
+            for f in files:
+                size_kb = f.get('size', 0) // 1024
+                print(f"  - {f['filename']} ({size_kb}KB)")
+        else:
+            att_dir = os.path.join(STATE_DIR, 'attachments', so_den)
+            if os.path.isdir(att_dir):
+                files = os.listdir(att_dir)
+                if files:
+                    print(f"[TAI] VB #{so_den}: {len(files)} file(s) đã có:")
+                    for fn in files:
+                        print(f"  - {fn}")
+                else:
+                    print(f"[TAI] VB #{so_den}: Thư mục tồn tại nhưng trống.")
+            else:
+                print(f"[TAI] VB #{so_den}: Không tải được file đính kèm. Kiểm tra log stderr để biết chi tiết.")
+    else:
+        main()
