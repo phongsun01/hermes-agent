@@ -678,6 +678,22 @@ def _fast_classify(trich_yeu: str) -> str | None:
             return "reply"
     return None
 
+URGENT_KEYWORDS = ['Cực Khẩn', 'Hỏa tốc hẹn giờ', 'Hỏa tốc', 'Thượng khẩn', 'Khẩn', 'Gấp', 'Tốc ký']
+
+def get_urgency(doc):
+    parsed = doc.get('do_khan', '').strip()
+    if parsed and parsed != 'Thường':
+        return parsed
+    trich_yeu = doc.get('trich_yeu', '')
+    so_ky_hieu = doc.get('so_ky_hieu', '')
+    so_den = doc.get('so_den', '')
+    combined = f"{trich_yeu} {so_ky_hieu} {so_den}".replace('(', '').replace(')', '')
+    for kw in URGENT_KEYWORDS:
+        if kw.lower() in combined.lower():
+            return kw
+    return "Thường"
+
+
 
 def classify_vb_ai(new_docs: list, state: dict) -> dict:
     """F23 + F27: Classify new VBs using LLM.
@@ -1060,20 +1076,7 @@ def main():
     # Sort by so_den descending (newest first)
     new_docs.sort(key=lambda d: int(d.get('so_den', '0') or '0'), reverse=True)
 
-    # Urgency detection
-    urgent_keywords = ['Cực Khẩn', 'Hỏa tốc hẹn giờ', 'Hỏa tốc', 'Thượng khẩn', 'Khẩn', 'Gấp', 'Tốc ký']
-    def get_urgency(doc):
-        parsed = doc.get('do_khan', '').strip()
-        if parsed and parsed != 'Thường':
-            return parsed
-        trich_yeu = doc.get('trich_yeu', '')
-        so_ky_hieu = doc.get('so_ky_hieu', '')
-        so_den = doc.get('so_den', '')
-        combined = f"{trich_yeu} {so_ky_hieu} {so_den}".replace('(', '').replace(')', '')
-        for kw in urgent_keywords:
-            if kw.lower() in combined.lower():
-                return kw
-        return "Thường"
+
 
     so_khan = sum(1 for d in new_docs if get_urgency(d) != "Thường")
     so_thuong = len(new_docs) - so_khan
