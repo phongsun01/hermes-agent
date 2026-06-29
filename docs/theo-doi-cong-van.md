@@ -417,6 +417,10 @@ CONGVAN_URGENT_KEYWORDS=Hỏa tốc,Khẩn,Thượng khẩn,Gấp,Cực Khẩn
 | 2355 | 1/1 (527KB PDF) | ✅ Complete |
 | 2432 | 4/4 (734KB + 491KB + 2.9MB + 672KB) | ✅ Complete |
 
+> [!WARNING]
+> **Yêu cầu đường dẫn file Windows khi gửi đính kèm qua Zalo:**
+> Vì Zalo Bridge chạy trực tiếp trên Windows Host (không nằm trong Docker container), mọi lệnh gửi file đính kèm (`/send-attachment`) yêu cầu truyền đường dẫn dạng Windows Host tương ứng của file (ví dụ: `C:\Users\Desktop\.hermes\cron\cong-van-den\attachments\...`), chứ không thể sử dụng đường dẫn dạng Linux `/opt/data/...` bên trong Docker container.
+
 ### F16b — Onyx RAG ingest (file → searchable content)
 
 **Trạng thái:** 📌 Sẽ triển khai | **Ưu tiên:** Thấp | **Độ khó:** Cao

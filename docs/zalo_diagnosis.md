@@ -1052,6 +1052,17 @@ WARNING ... Zalo: SSE disconnected (SSE status 429); reconnecting in X.Xs
 ```
 Hàng trăm dòng 429 liên tục trong nhiều phút.
 
+### 25. Yêu cầu đường dẫn file Windows khi gửi đính kèm từ Docker (2026-06-29)
+
+**Vấn đề:** Khi gọi endpoint `/send-attachment` hoặc `/send-image` của Zalo Bridge thông qua Docker, nếu truyền đường dẫn dạng Linux bên trong container (`/opt/data/cron/...`), bridge (chạy trên môi trường Windows Host) sẽ trả về lỗi `HTTP Error 400: Bad Request` hoặc không tìm thấy file.
+
+**Nguyên nhân:** Zalo Bridge chạy trực tiếp trên Windows Host (port 8787). Khi xử lý file đính kèm để gửi đi, Node.js process của bridge đọc trực tiếp file từ hệ điều hành Host, do đó nó yêu cầu đường dẫn Windows của file đó, chứ không thể tự phân giải đường dẫn cục bộ bên trong Docker container.
+
+**Cách khắc phục:**
+Khi gửi đính kèm từ trong container tới Bridge, phải chuyển đổi đường dẫn sang dạng Windows Host tương ứng:
+- Trong Container: `/opt/data/cron/cong-van-den/attachments/2490/file.docx`
+- Chuyển thành: `C:\Users\Desktop\.hermes\cron\cong-van-den\attachments\2490\file.docx`
+
 ---
 
 ## 📚 Tham khảo
