@@ -539,24 +539,67 @@ def pw_get_documents():
                 browser = p.chromium.launch(
                     headless=True, args=["--no-sandbox"]
                 )
-                page = browser.new_page()
-                page.set_default_timeout(60000)
-
-                # --- Login via OpenAM SSO ---
-                page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
-                page.wait_for_timeout(2000)
-                page.fill('#IDToken1', USERNAME)
-                page.fill('#IDToken2', PASSWORD)
-                page.click('#btnLogin')
-                page.wait_for_timeout(3000)
-                try: page.wait_for_load_state("networkidle", timeout=15000)
-                except: pass
-
-                # Save storage state for attachment download to reuse
-                try:
-                    os.makedirs(STATE_DIR, exist_ok=True)
-                    page.context.storage_state(path=STORAGE_STATE_FILE)
-                except: pass
+                
+                context = None
+                session_reused = False
+                if os.path.exists(STORAGE_STATE_FILE):
+                    try:
+                        print(f"[INFO] Attempting to reuse Playwright storage state...", file=sys.stderr)
+                        context = browser.new_context(storage_state=STORAGE_STATE_FILE)
+                        page = context.new_page()
+                        page.set_default_timeout(60000)
+                        
+                        # Go to DOCS_URL and check if redirect to login page or has login elements
+                        page.goto(DOCS_URL, wait_until="domcontentloaded", timeout=30000)
+                        page.wait_for_timeout(2000)
+                        
+                        # Check if we are still on login page or redirected to Login.aspx
+                        if "Login.aspx" not in page.url and not page.query_selector("#IDToken1"):
+                            print(f"[INFO] Playwright storage state is valid. Session reused!", file=sys.stderr)
+                            session_reused = True
+                        else:
+                            print(f"[INFO] Playwright storage state expired or invalid.", file=sys.stderr)
+                            page.close()
+                            context.close()
+                            context = None
+                    except Exception as reuse_err:
+                        print(f"[WARNING] Failed to reuse storage state: {reuse_err}", file=sys.stderr)
+                        if context:
+                            try: context.close()
+                            except: pass
+                        context = None
+                
+                if not session_reused:
+                    print(f"[INFO] Performing fresh login...", file=sys.stderr)
+                    context = browser.new_context()
+                    page = context.new_page()
+                    page.set_default_timeout(60000)
+                    
+                    # --- Login via OpenAM SSO ---
+                    page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_timeout(2000)
+                    page.fill('#IDToken1', USERNAME)
+                    page.fill('#IDToken2', PASSWORD)
+                    page.click('#btnLogin')
+                    page.wait_for_timeout(3000)
+                    try: page.wait_for_load_state("networkidle", timeout=15000)
+                    except: pass
+                    
+                    # Handle password warning page
+                    if "CanhBaoMatKhau" in page.url or "PasswordWarning" in page.url:
+                        try:
+                            btn = page.query_selector("input[type=submit], button")
+                            if btn:
+                                btn.click()
+                                page.wait_for_timeout(3000)
+                        except: pass
+                    
+                    # Save storage state for reuse
+                    try:
+                        os.makedirs(STATE_DIR, exist_ok=True)
+                        page.context.storage_state(path=STORAGE_STATE_FILE)
+                        print(f"[INFO] Saved Playwright storage state.", file=sys.stderr)
+                    except: pass
 
                 # --- Collect docs for each unit ---
                 if UNITS:
@@ -595,6 +638,217 @@ def save_state(state):
     os.makedirs(STATE_DIR, exist_ok=True)
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
+
+
+# === F23 — AI Auto-Tagging | F27 — Classify response_needed ===
+
+# Danh sách nhãn công việc (F23)
+AI_TAG_CATEGORIES = [
+    "Báo cáo", "Kế hoạch", "Quyết định", "Tài chính", "Nhân sự",
+    "Đào tạo", "Kiểm tra/Thanh tra", "Hội nghị/Họp", "Thông báo/Để biết",
+    "Yêu cầu trả lời", "Chỉ đạo điều hành", "Y tế chuyên môn", "Khác",
+]
+
+# Nhãn nào thì KHÔNG cần soạn phúc đáp (F27)
+_NO_REPLY_TAGS = {"Thông báo/Để biết", "Báo cáo", "Kế hoạch"}
+
+# Từ khóa trích yếu → chắc chắn không cần trả lời (nhanh, không cần LLM)
+_NO_REPLY_KEYWORDS = [
+    "thông báo", "để biết", "để triển khai", "để thực hiện",
+    "để phổ biến", "gửi để biết", "báo cáo kết quả", "kính báo",
+]
+
+# Từ khóa trích yếu → chắc chắn cần trả lời
+_REPLY_KEYWORDS = [
+    "đề nghị", "yêu cầu", "kính đề nghị", "xin ý kiến", "góp ý",
+    "tham gia ý kiến", "phúc đáp", "trả lời", "hướng dẫn thực hiện",
+    "báo cáo về", "cung cấp số liệu",
+]
+
+
+def _fast_classify(trich_yeu: str) -> str | None:
+    """Nhanh chóng phân loại bằng keyword — không cần gọi LLM.
+    Trả về 'no_reply', 'reply', hoặc None nếu cần LLM quyết định."""
+    t = trich_yeu.lower()
+    for kw in _NO_REPLY_KEYWORDS:
+        if kw in t:
+            return "no_reply"
+    for kw in _REPLY_KEYWORDS:
+        if kw in t:
+            return "reply"
+    return None
+
+
+def classify_vb_ai(new_docs: list, state: dict) -> dict:
+    """F23 + F27: Classify new VBs using LLM.
+    - F23: Gán nhãn mảng công việc (tags)
+    - F27: Quyết định response_needed (True/False)
+
+    Trả về dict: {so_den: {'tags': [...], 'response_needed': bool, 'confidence': str}}
+    VBs đã có ai_classification trong state sẽ được bỏ qua.
+    """
+    if not new_docs:
+        return {}
+
+    # Lọc VB chưa classify
+    to_classify = []
+    for d in new_docs:
+        so_den = str(d.get('so_den', '')).strip()
+        if not so_den:
+            continue
+        existing = state.get('documents', {}).get(so_den, {})
+        if existing.get('ai_classification'):
+            continue  # đã classify rồi
+        to_classify.append(d)
+
+    if not to_classify:
+        return {}
+
+    results = {}
+
+    # Bước 1: Fast classify bằng keyword (không tốn LLM token)
+    need_llm = []
+    for d in to_classify:
+        so_den = str(d.get('so_den', '')).strip()
+        trich_yeu = d.get('trich_yeu', '')
+        fast = _fast_classify(trich_yeu)
+        if fast == "no_reply":
+            results[so_den] = {
+                'tags': ['Thông báo/Để biết'],
+                'response_needed': False,
+                'confidence': 'keyword',
+            }
+        elif fast == "reply":
+            results[so_den] = {
+                'tags': ['Yêu cầu trả lời'],
+                'response_needed': True,
+                'confidence': 'keyword',
+            }
+        else:
+            need_llm.append(d)
+
+    print(f"[AI] Fast-classified {len(results)}/{len(to_classify)} VBs. Sending {len(need_llm)} to LLM...", file=sys.stderr)
+
+    # Bước 2: LLM batch classify cho những VB còn lại
+    if need_llm:
+        llm_results = _classify_batch_llm(need_llm)
+        results.update(llm_results)
+
+    # Lưu kết quả vào state
+    for so_den, cls in results.items():
+        if so_den in state.get('documents', {}):
+            state['documents'][so_den]['ai_classification'] = cls
+            state['documents'][so_den]['tags'] = cls.get('tags', [])
+            state['documents'][so_den]['response_needed'] = cls.get('response_needed', True)
+
+    return results
+
+
+def _classify_batch_llm(docs: list) -> dict:
+    """Gọi LLM để classify batch VBs. Trả về {so_den: classification_dict}."""
+    # Lấy config LLM từ env/config
+    base_url = os.environ.get("OPENAI_BASE_URL", "http://host.docker.internal:20128/v1")
+    api_key = os.environ.get("OPENAI_API_KEY", "sk-dummy")
+    model = os.environ.get("CONGVAN_AI_MODEL", "hermes-combo")
+
+    # Build danh sách nhãn cho prompt
+    tag_list = ", ".join(f'"{t}"' for t in AI_TAG_CATEGORIES)
+
+    # Build prompt — compact, JSON output
+    items = []
+    for d in docs:
+        so_den = str(d.get('so_den', '')).strip()
+        tac_gia = d.get('tac_gia', '')[:50]
+        trich_yeu = d.get('trich_yeu', '')[:120]
+        items.append(f'  {{"so_den": "{so_den}", "tac_gia": "{tac_gia}", "trich_yeu": "{trich_yeu}"}}')
+
+    prompt = f"""Bạn là chuyên gia phân loại văn bản hành chính Việt Nam.
+Phân loại danh sách công văn đến sau theo 2 tiêu chí:
+1. tags: Mảng 1-2 nhãn phù hợp nhất từ danh sách: [{tag_list}]
+2. response_needed: true nếu văn bản YÊU CẦU đơn vị soạn văn bản trả lời/phúc đáp, false nếu chỉ để biết/triển khai nội bộ
+
+Trả về JSON array (không có markdown):
+[{{"so_den": "...", "tags": ["..."], "response_needed": true/false}}, ...]
+
+Danh sách công văn:
+[
+{chr(10).join(items)}
+]"""
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 2000,
+        "temperature": 0.1,
+        "stream": False,
+    }
+
+    try:
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            f"{base_url}/chat/completions",
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=40) as resp:
+            resp_bytes = resp.read()
+            resp_str = resp_bytes.decode('utf-8').strip()
+            
+            # Clean up trailing garbage like "data: [DONE]" if present
+            if "data: [DONE]" in resp_str:
+                resp_str = resp_str.split("data: [DONE]")[0].strip()
+            
+            # Find the actual JSON object bounds
+            j_start = resp_str.find('{')
+            j_end = resp_str.rfind('}')
+            if j_start == -1 or j_end == -1:
+                raise ValueError("No JSON object found in response body")
+            
+            body = json.loads(resp_str[j_start:j_end+1])
+            
+        content = body['choices'][0]['message']['content'].strip()
+
+        # Parse JSON — bỏ qua markdown fences và text thừa sau JSON
+        if content.startswith('```'):
+            content = re.sub(r'^```[^\n]*\n', '', content)
+            content = re.sub(r'```.*$', '', content, flags=re.DOTALL).strip()
+        # Extract the JSON array: find first '[' to last ']'
+        start = content.find('[')
+        end = content.rfind(']')
+        if start == -1 or end == -1 or end < start:
+            raise ValueError(f"No JSON array found in LLM response: {content[:200]}")
+        parsed = json.loads(content[start:end+1])
+
+
+        results = {}
+        for item in parsed:
+            so_den = str(item.get('so_den', '')).strip()
+            tags = item.get('tags', ['Khác'])
+            response_needed = bool(item.get('response_needed', True))
+            # Nếu tags chứa Thông báo/Để biết → override response_needed=False
+            if any(t in _NO_REPLY_TAGS for t in tags):
+                response_needed = False
+            results[so_den] = {
+                'tags': tags,
+                'response_needed': response_needed,
+                'confidence': 'llm',
+            }
+        print(f"[AI] LLM classified {len(results)}/{len(docs)} VBs successfully.", file=sys.stderr)
+        return results
+
+    except Exception as e:
+        print(f"[AI] LLM classify failed: {e}", file=sys.stderr)
+        # Fallback: tất cả là Khác, response_needed=True
+        return {
+            str(d.get('so_den', '')): {'tags': ['Khác'], 'response_needed': True, 'confidence': 'fallback'}
+            for d in docs
+        }
+
+
 
 
 def main():
@@ -656,10 +910,13 @@ def main():
     new_docs = [d for d in docs if (d.get('so_den', '') or d.get('so_ky_hieu', '')) not in seen]
 
     old_seen = set(state.get('seen_ids', []))
-    state['seen_ids'] = list(old_seen | current_ids)
+    # NOTE: We intentionally do NOT update seen_ids here.
+    # seen_ids is updated AFTER the message is printed to stdout (dưới cùng của hàm main).
+    # This prevents VBs from being silently swallowed if the script is killed between
+    # saving state and the cron scheduler delivering the message.
     state['last_check'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     state['last_count'] = len(docs)
-    # Save document details for new VBs
+    # Save document details for new VBs (metadata only — not seen_ids yet)
     state.setdefault('documents', {})
     for d in docs:
         key = d.get('so_den', '') or d.get('so_ky_hieu', '')
@@ -679,14 +936,20 @@ def main():
                 'status_updated_at': now_ts,
                 'note': '',
             }
+    # Save metadata early so attachment/role processing can reference it.
+    # seen_ids will be committed at the END after stdout is flushed.
     save_state(state)
 
     # --- F20: Phát hiện VB trùng/thay thế ---
     replace_keywords = ["thay thế", "đính chính", "bổ sung", "hủy bỏ", "sửa đổi"]
     dup_warnings = []
-    # Build so_ky_hieu → so_den index from existing state (excluding current docs)
+    # Build so_ky_hieu → so_den index from PREVIOUS state only (docs that existed before this run).
+    # Exclude IDs that are among the current new_docs to avoid each VB matching itself.
+    new_doc_ids = {d.get('so_den', '') or d.get('so_ky_hieu', '') for d in new_docs}
     skh_index = {}
     for sid, sd in state.get('documents', {}).items():
+        if sid in new_doc_ids:
+            continue  # skip — this doc was just added, not a pre-existing duplicate
         skh = sd.get('so_ky_hieu', '').strip()
         if skh:
             skh_index.setdefault(skh, []).append(sid)
@@ -704,6 +967,7 @@ def main():
             dup_warnings.append((d, old_ids, match_kw, "related"))
         else:
             dup_warnings.append((d, old_ids, [], "duplicate"))
+
     # Save relationship in state
     if dup_warnings:
         for d, old_ids, kw, kind in dup_warnings:
@@ -717,16 +981,45 @@ def main():
                     state['documents'][key]['note'] = (state['documents'][key].get('note', '')
                         + f"[Trùng số {skh} với {old_ids}] ")
 
+    # --- F23 + F27: AI Auto-Tagging & Response Classification ---
+    ai_classifications = {}
+    if new_docs and _time_remaining() > 35:
+        print(f"[AI] Running F23/F27 classify for {len(new_docs)} new VBs...", file=sys.stderr)
+        ai_classifications = classify_vb_ai(new_docs, state)
+        if ai_classifications:
+            save_state(state)  # persist tags + response_needed
+    else:
+        print(f"[AI] Skipping classify (time_remaining={_time_remaining():.0f}s)", file=sys.stderr)
+
     # --- F20: Fetch roles and auto-finish ---
     auto_finish_list = fetch_vai_tro_for_docs(new_docs, state)
+
+    # --- F27: Supplement auto-finish with AI classification ---
+    # VBs AI says response_needed=False (and urgency is Thường) → also auto-finish
+    import subprocess
+    action_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "congchuc_action.py")
+    python_bin = "/opt/hermes/.venv/bin/python" if os.path.exists("/opt/hermes/.venv/bin/python") else sys.executable
+    for so_den_str, cls in ai_classifications.items():
+        if so_den_str in auto_finish_list:
+            continue  # already being finished by F20
+        if cls.get('response_needed') is False:
+            # Only auto-finish non-urgent VBs
+            doc_urgency = next(
+                (get_urgency(d) for d in new_docs if str(d.get('so_den','')) == so_den_str),
+                'Thường'
+            )
+            if doc_urgency == 'Thường':
+                auto_finish_list.append(so_den_str)
+                tags_str = ', '.join(cls.get('tags', []))
+                print(f"[F27] #{so_den_str} classified as no-reply ({tags_str}) → queuing auto-finish", file=sys.stderr)
+
     if auto_finish_list:
         save_state(state)
-        import subprocess
-        action_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "congchuc_action.py")
-        python_bin = "/opt/hermes/.venv/bin/python" if os.path.exists("/opt/hermes/.venv/bin/python") else sys.executable
         for so_den in auto_finish_list:
             vai_tro = state['documents'].get(so_den, {}).get('vai_tro', 'Thông báo')
-            reason = f"Đã nhận văn bản (Tự động kết thúc - {vai_tro})"
+            tags_str = ', '.join(state['documents'].get(so_den, {}).get('tags', []))
+            reason_detail = tags_str if tags_str else vai_tro
+            reason = f"Đã nhận văn bản (Tự động kết thúc - {reason_detail})"
             print(f"[AUTO-FINISH] Spawning background task for #{so_den}...", file=sys.stderr)
             subprocess.Popen([python_bin, action_script, "kethuc", str(so_den), reason],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -734,6 +1027,7 @@ def main():
             for d in new_docs:
                 if str(d.get('so_den', '')) == str(so_den):
                     d['auto_finished'] = True
+
 
     # Download attachments for new docs (optional, requires Playwright)
     CONGVAN_DOWNLOAD_ATTACHMENTS = os.environ.get("CONGVAN_DOWNLOAD_ATTACHMENTS", "").strip()
@@ -822,14 +1116,38 @@ def main():
         but_phe = doc.get('but_phe', '')
         bp_tag = " 📝" if but_phe else ""
         af_tag = " ✅(Auto-Finished)" if doc.get('auto_finished') else ""
-        lines.append(f"{i}. {urgency_tag} #{so_den} | {so_ky_hieu}{af_tag}")
+        # F23: show tags | F27: show reply icon
+        doc_cls = ai_classifications.get(str(so_den), {})
+        tags = doc_cls.get('tags') or state.get('documents', {}).get(str(so_den), {}).get('tags', [])
+        response_needed = doc_cls.get('response_needed', None)
+        if response_needed is None:
+            response_needed = state.get('documents', {}).get(str(so_den), {}).get('response_needed', None)
+        if tags:
+            tag_str = f" 🏷️{'/'.join(tags[:2])}"
+        else:
+            tag_str = ""
+        if response_needed is True:
+            reply_icon = " ✏️"
+        elif response_needed is False:
+            reply_icon = ""
+        else:
+            reply_icon = ""
+        lines.append(f"{i}. {urgency_tag} #{so_den} | {so_ky_hieu}{af_tag}{reply_icon}{tag_str}")
         lines.append(f"   {tac_gia} — {trich_yeu}{bp_tag}")
+
 
     lines.append("")
     lines.append(f"📊 {len(new_docs)} mới (khẩn: {so_khan}, thường: {so_thuong})")
     lines.append(f"🔗 {DOCS_URL}")
 
     print('\n'.join(lines), flush=True)
+
+    # Commit seen_ids NOW — after stdout is flushed and the message has been delivered.
+    # This is the critical fix: if the script is killed between here and the flush above,
+    # the cron scheduler will re-deliver on the next run because IDs won't be in seen_ids.
+    state2 = load_state()  # re-read in case attachment/role steps modified it
+    state2['seen_ids'] = list(old_seen | current_ids)
+    save_state(state2)
 
 
 def download_attachments_for_docs(new_docs, state, state_dir):
@@ -854,10 +1172,30 @@ def download_attachments_for_docs(new_docs, state, state_dir):
             browser = p.chromium.launch(headless=True)
             
             # Use saved storage_state from pw_get_documents to skip re-login
+            # Use saved storage_state from pw_get_documents to skip re-login
+            session_reused = False
             if os.path.exists(STORAGE_STATE_FILE):
-                print("[ATTACHMENT] Reusing login session from state file", file=sys.stderr)
-                login_context = browser.new_context(storage_state=STORAGE_STATE_FILE)
-            else:
+                try:
+                    print("[ATTACHMENT] Attempting to reuse login session from state file", file=sys.stderr)
+                    login_context = browser.new_context(storage_state=STORAGE_STATE_FILE)
+                    test_page = login_context.new_page()
+                    test_page.goto(DOCS_URL, wait_until="domcontentloaded", timeout=20000)
+                    test_page.wait_for_timeout(2000)
+                    if "Login.aspx" not in test_page.url and not test_page.query_selector("#IDToken1"):
+                        print("[ATTACHMENT] Playwright storage state is valid. Session reused!", file=sys.stderr)
+                        session_reused = True
+                        test_page.close()
+                    else:
+                        print("[ATTACHMENT] Playwright storage state expired or invalid.", file=sys.stderr)
+                        test_page.close()
+                        login_context.close()
+                except Exception as reuse_err:
+                    print(f"[ATTACHMENT] [WARNING] Failed to reuse storage state: {reuse_err}", file=sys.stderr)
+                    try: login_context.close()
+                    except: pass
+            
+            if not session_reused:
+                print("[ATTACHMENT] Performing fresh login...", file=sys.stderr)
                 login_context = browser.new_context()
                 login_page = login_context.new_page()
                 
@@ -868,6 +1206,20 @@ def download_attachments_for_docs(new_docs, state, state_dir):
                 login_page.click('#btnLogin')
                 login_page.wait_for_timeout(3000)
                 try: login_page.wait_for_load_state("networkidle", timeout=15000)
+                except: pass
+                
+                # Handle password warning page
+                if "CanhBaoMatKhau" in login_page.url or "PasswordWarning" in login_page.url:
+                    try:
+                        btn = login_page.query_selector("input[type=submit], button")
+                        if btn: btn.click(); login_page.wait_for_timeout(3000)
+                    except: pass
+                
+                # Save storage state for reuse
+                try:
+                    os.makedirs(STATE_DIR, exist_ok=True)
+                    login_context.storage_state(path=STORAGE_STATE_FILE)
+                    print("[ATTACHMENT] Saved Playwright storage state.", file=sys.stderr)
                 except: pass
                 
                 if UNITS:

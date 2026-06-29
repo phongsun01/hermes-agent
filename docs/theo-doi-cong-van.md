@@ -81,6 +81,9 @@ Xây dựng hệ thống tự động:
 | F19 | **Báo cáo thống kê định kỳ** | ✅ Đã triển khai | `congchuc_report.py --weekly`, 17h thứ 6 qua Zalo |
 | F22 | **Tóm tắt văn bản `/cc tomtat`** | ✅ Đã triển khai | Auto-download nếu chưa có file → đọc PDF/DOCX → LLM tóm tắt |
 | F20 | **Tự động kết thúc văn bản từ xa & Auto-Finish** | ✅ Đã triển khai | Playwright tự động chọn Kết thúc & Auto-Finish cho VB "Thông báo/Để biết" |
+| F23 | **Tự động phân loại bằng AI (Auto-Tagging)** | ✅ Đã triển khai | Gán nhãn công việc bằng AI/LLM & phân loại keyword nhanh |
+| F27 | **Phân loại VB cần trả lời vs VB chỉ để biết bằng AI** | ✅ Đã triển khai | Tự động hóa kết thúc VB không cần trả lời và đánh dấu VB cần soạn trả lời |
+
 
 ### 🚧 Đang phát triển
 
@@ -91,14 +94,12 @@ Xây dựng hệ thống tự động:
 | # | Tính năng | Ưu tiên | Độ khó | Ghi chú |
 |---|---|---|---|---|
 | F15 | **Task auto-create** | Trung bình | Trung bình | Tự tạo kanban/todo khi có VB hỏa tốc |
+| F20b | **Tự động chuyển tiếp văn bản từ xa** | 🚧 Đang phát triển | Trung bình | Tự động chuyển tiếp văn bản đến đơn vị/cá nhân khác theo cấu hình |
+| F24 | **Hệ thống nhắc việc tự động (SLA Reminders)** | Trung bình | Thấp | Tự động nhắc nhở qua Zalo định kỳ cho các văn bản `wip` ngâm lâu. Nguồn deadline cần làm rõ (F10 trống): AI ước lượng hoặc user set qua `/cc deadline <số> <ngày>`. |
+| F26 | **Duyệt và sửa dự thảo tương tác qua Zalo** | Trung bình | Cao | Phản hồi chỉnh sửa dự thảo Word qua Zalo. Độ phức tạp cao vì Zalo thiếu thread reply, cần dùng state machine để lưu draft đang chờ duyệt và nhận feedback. |
+| F25 | **Tìm kiếm ngữ nghĩa qua Zalo (Semantic Search)** | Trung bình | Trung bình | Nhắn tin tìm kiếm văn bản liên quan qua Zalo chat (kết hợp LightRAG). **Phụ thuộc F16b** (cần corpus). |
 | F16b | **Onyx RAG/LightRAG ingest** | Thấp | Cao | Sử dụng LightRAG làm giải pháp chính để ingest và query nội dung file |
 | F17 | **Dashboard web** | Thấp | Trung bình | Trang web hiển thị danh sách, filter, search, thống kê |
-| F20b | **Tự động chuyển tiếp văn bản từ xa** | 🚧 Đang phát triển | Trung bình | Tự động chuyển tiếp văn bản đến đơn vị/cá nhân khác theo cấu hình |
-
-| F23 | **Tự động phân loại bằng AI (Auto-Tagging)** | Trung bình | Thấp | Sử dụng LLM phân loại mảng công việc (Tài chính, Nhân sự, Báo cáo...) từ trích yếu |
-| F24 | **Hệ thống nhắc việc tự động (SLA Reminders)** | Trung bình | Thấp | Tự động nhắc nhở qua Zalo định kỳ cho các văn bản `wip` ngâm lâu |
-| F25 | **Tìm kiếm ngữ nghĩa qua Zalo (Semantic Search)** | Trung bình | Trung bình | Nhắn tin tìm kiếm văn bản liên quan qua Zalo chat (kết hợp LightRAG) |
-| F26 | **Duyệt và sửa dự thảo tương tác qua Zalo** | Trung bình | Trung bình | Phản hồi chỉnh sửa dự thảo Word trực tiếp qua tin nhắn Zalo |
 
 
 
@@ -247,6 +248,7 @@ Script xử lý đầy đủ:
 - Playwright **không giúp lấy thêm cột** ngoài 12 cột đã có
 - Hạn xử lý **trống** — không phải lỗi parse, server không có data
 - Script có fallback: ưu tiên Playwright, nếu không available → urllib (chỉ page 1)
+- **Tái sử dụng session / Cookie persistence (Cập nhật 2026-06-26):** Tích hợp cơ chế kiểm tra và nạp file trạng thái session (`.playwright_storage.json`) dùng chung cho cả 3 script Playwright (`congchuc_scrape.py`, `congchuc_vbdi_scrape.py`, `congchuc_action.py`). Nếu session còn hợp lệ (không redirect sang Login.aspx), script bỏ qua bước login giúp giảm thiểu số lượng session đồng thời và nâng cao tốc độ quét/thực thi.
 
 **Install:**
 - Playwright Python package baked vào Docker image (local wheel build)
@@ -713,11 +715,16 @@ RadGrid `$create(Telerik.Web.UI.RadGrid, ...)` client-side init có `PageSize:10
 | `/cc list` | Liệt kê VB chưa xử lý | `congvan_status.py list --status new` |
 | `/cc list today` | VB hôm nay | `congvan_status.py list` → lọc ngày |
 | `/cc end <số 1> <số 2> ...` | Kết thúc danh sách VB trên web | `congchuc_action.py kethuc <số>` (Playwright, ~15s/VB) |
-| `/cc end all` | Kết thúc toàn bộ VB new | Loop qua từng VB |
+| `/cc end all` | Kết thúc toàn bộ VB new | Kiểm tra số lượng và yêu cầu xác nhận (Safeguard) trước khi chạy kết thúc |
 | `/cc tai <số 1> <số 2> ...` | Tải file đính kèm ngay | `congchuc_scrape.py --download-only <số>` (Playwright, ~25s/VB) |
 | `/cc tomtat <số 1> <số 2> ...` | Tóm tắt danh sách văn bản | Pipeline đầy đủ (mỗi VB ~30-60s) |
 | `/cc duthao <số 1> <số 2> ...` | Tạo dự thảo trả lời danh sách | `congchuc_draft.py --so-den <số>` |
 | `/cc help` | Hiển thị hướng dẫn | — |
+
+**Safeguard cho lệnh `/cc end all` (Cập nhật 2026-06-26):**
+- Khi thực thi `/cc end all`, Agent sẽ đọc danh sách văn bản `new` từ `vbden_state.json` và loại bỏ các văn bản đã có trạng thái `done`.
+- Agent sẽ gửi tin nhắn thống kê số lượng văn bản chưa xử lý tìm được và yêu cầu người dùng confirm: *"Có X văn bản chưa xử lý (danh sách: <số_1>, <số_2>,...), bạn có chắc chắn muốn kết thúc tất cả không?"*
+- Chỉ khi người dùng đồng ý/xác nhận, Agent mới chạy vòng lặp gọi script `congchuc_action.py kethuc` nhằm tránh các hành động bấm nhầm ngoài ý muốn.
 
 **Pipeline `/cc tomtat <số>`** (v2 — 2026-06-26):
 ```
@@ -734,7 +741,22 @@ RadGrid `$create(Telerik.Web.UI.RadGrid, ...)` client-side init có `PageSize:10
 **Script key:**
 - `~/.hermes/skills/cc/scripts/congchuc_summarize.py` — pipeline tóm tắt (v2)
 - `~/.hermes/scripts/congchuc/congchuc_scrape.py --download-only <số>` — tải file on-demand
-- `~/.hermes/skills/cc/SKILL.md` — hướng dẫn cho agent (v1.6.0)
+- `~/.hermes/skills/cc/SKILL.md` — hướng dẫn cho agent (v1.7.0)
+
+---
+
+### F23 — Tự động phân loại bằng AI (Auto-Tagging) & F27 — Phân loại VB cần trả lời
+
+**Trạng thái:** ✅ Đã triển khai | **Cập nhật:** 2026-06-29 ICT
+
+**Cách hoạt động:**
+1. **Phân loại nhanh (Fast-Classify):** Script sử dụng biểu thức chính quy (regular expressions) để quét `trich_yeu` đối chiếu với bộ từ khóa tĩnh của hệ thống.
+   - Nhãn `Thông báo/Để biết` & `response_needed = False` đối với các từ khóa: *thông báo, để biết, để triển khai, để thực hiện, kính báo, báo cáo kết quả...*
+   - Nhãn `Yêu cầu trả lời` & `response_needed = True` đối với các từ khóa: *đề nghị, yêu cầu, xin ý kiến, góp ý, phúc đáp, báo cáo về...*
+2. **Gọi LLM phân loại (LLM Classify):** Với các văn bản không khớp từ khóa tĩnh, hệ thống gửi yêu cầu batch đến LLM (`hermes-combo` hoặc Gemini 3.1 Flash) để phân loại sang 13 nhóm nghiệp vụ chuẩn (như *Tài chính, Nhân sự, Y tế chuyên môn, Quyết định...*) và xác định tính cấp thiết của việc soạn trả lời (`response_needed`).
+3. **Cơ chế lưu trữ:** Kết quả phân loại được lưu trữ trong `vbden_state.json` dưới trường `tags`, `response_needed`, và `ai_classification`.
+4. **Tích hợp Zalo:** Hiển thị nhãn công việc đầy đủ dạng `🏷️Nhãn` và biểu tượng bút chì `✏️` đối với văn bản cần soạn trả lời.
+5. **Auto-Finish nâng cao (F27):** Các văn bản không khẩn có `response_needed = False` được tự động chuyển cho tiến trình Playwright kết thúc từ xa trên hệ thống mà không cần người dùng thao tác.
 
 ---
 
@@ -763,26 +785,28 @@ RadGrid `$create(Telerik.Web.UI.RadGrid, ...)` client-side init có `PageSize:10
 - [x] F14: Theo dõi công văn đi
 - [x] F19: Báo cáo thống kê tuần/tháng qua Zalo
 
-### Phase 4 — UI & attachments (tuần 5-6)
+### Phase 4 — UI, AI & Tối ưu hóa (tuần 5-6)
 - [x] F16a: Attachment download — đã triển khai (còn multi-file catch-up dần)
-- [ ] F16b: Ingest nội dung attachment vào **Onyx RAG/LightRAG** (Ưu tiên thấp)
-- [ ] F17: Dashboard web (có update trạng thái VB)
 - [x] F20: Tự động kết thúc văn bản từ xa & Auto-Finish (đã hoàn thành)
-- [ ] F20b: Tự động chuyển tiếp văn bản từ xa (đang phát triển)
 - [x] F20a: Phát hiện VB trùng/thay thế
-- [ ] F23: Tự động phân loại mảng công việc bằng AI
-- [ ] F24: Hệ thống nhắc nhở SLA qua Zalo
-- [ ] F25: Tìm kiếm ngữ nghĩa văn bản qua Zalo
-- [ ] F26: Duyệt và sửa đổi dự thảo tương tác qua Zalo
+- [ ] F20b: Tự động chuyển tiếp văn bản từ xa (đang phát triển)
+- [x] F23: Tự động phân loại mảng công việc bằng AI (Auto-Tagging) (Hoàn thành)
+- [x] F27: Phân loại VB cần trả lời vs VB chỉ để biết bằng AI (Hoàn thành)
+- [ ] F24: Hệ thống nhắc nhở SLA qua Zalo (Cần làm rõ nguồn deadline/bổ sung `/cc deadline`)
+- [ ] F16b: Ingest nội dung attachment vào **Onyx RAG/LightRAG** (Ưu tiên thấp)
+- [ ] F25: Tìm kiếm ngữ nghĩa văn bản qua Zalo (Phụ thuộc F16b)
+- [ ] F26: Duyệt và sửa đổi dự thảo tương tác qua Zalo (Cần thiết kế state machine tương tác)
+- [ ] F17: Dashboard web (có update trạng thái VB)
 
 
 ---
 
-## ⚠️ Lưu ý bảo mật
+## ⚠️ Lưu ý bảo mật & Rủi ro kỹ thuật
 
-- **Credentials trong `.env`**: `CONGVAN_PASS` để plain text — OK cho local, nhưng nếu expose REST API (`/api/jobs`) cần đảm bảo `.env` không bao giờ được serve qua endpoint.
+- **Không ghi đè mật khẩu (Plain Text Credentials)**: Tuyệt đối không lưu tài khoản/mật khẩu thật (`CONGVAN_USER`, `CONGVAN_PASS`) trong tài liệu hoặc mã nguồn được đưa lên Git. Chỉ lưu trong file `.env` local và cấu hình `.gitignore` để bỏ qua file này.
 - **API_SERVER_KEY**: Không commit, dùng biến môi trường hoặc vault.
-- **Session cookies**: Playwright cần giữ login state — lưu cookie jar an toàn, rotate định kỳ.
+- **Tối ưu session Playwright**: Hiện tại mỗi lần cron chạy đều đăng nhập mới, có thể tạo ra quá nhiều session đồng thời dẫn đến việc bị hệ thống portal phát hiện và chặn (block). Cần thiết lập lưu trữ và tái sử dụng cookie jar nếu session còn hiệu lực.
+- **Safeguard cho lệnh `/cc end all`**: Lệnh kết thúc hàng loạt văn bản chưa xử lý (mất ~15 giây cho mỗi văn bản) cần có bước xác nhận (confirm) qua Zalo (ví dụ: bot hỏi *"Có X văn bản chưa xử lý, xác nhận kết thúc tất cả?"*) nhằm tránh thao tác nhầm lẫn và không thể undo.
 
 ---
 
