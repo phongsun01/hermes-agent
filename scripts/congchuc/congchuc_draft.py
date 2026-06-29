@@ -56,7 +56,7 @@ def extract_text_from_file(filepath):
         except: return ""
     return ""
 
-def generate_draft(so_den):
+def generate_draft(so_den, send_zalo=False):
     if not os.path.exists(STATE_FILE):
         print(f"State file {STATE_FILE} not found.")
         sys.exit(1)
@@ -157,7 +157,10 @@ Hãy soạn dự thảo văn bản phản hồi/xử lý ngay bây giờ."""
         f.write(md_content)
         
     # Call convert script
-    convert_script = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs", "xu-ly-van-phong-v1.0", "scripts", "convert", "convert_md_to_docx.py")
+    convert_script = "/opt/hermes/docs/xu-ly-van-phong-v1.0/scripts/convert/convert_md_to_docx.py"
+    if not os.path.exists(convert_script):
+        # Fallback to relative path of the workspace
+        convert_script = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs", "xu-ly-van-phong-v1.0", "scripts", "convert", "convert_md_to_docx.py")
     print(f"Converting to DOCX: {convert_script}")
     
     python_bin = sys.executable
@@ -165,35 +168,69 @@ Hãy soạn dự thảo văn bản phản hồi/xử lý ngay bây giờ."""
         python_bin = "/opt/hermes/.venv/bin/python"
     
     subprocess.run([python_bin, convert_script, md_path, docx_path], check=True)
-    
     print(f"Draft generated successfully: {docx_path}")
     
-    # Phase 3: Send via Zalo Plugin
-    chat_id = os.environ.get("CONGVAN_ZALO_CHAT_ID", "2825656851207986406")
-    api_url = os.environ.get("CONGVAN_ZALO_API_URL", "http://localhost:8787/send-attachment")
-    print(f"Sending to Zalo chat_id: {chat_id} via API: {api_url}")
-    try:
-        # Use curl to send multipart/form-data
-        curl_cmd = [
-            "curl", "-s", "-X", "POST",
-            api_url,
-            "-F", f"file=@{docx_path}",
-            "-F", f"chat_id={chat_id}"
-        ]
-        res = subprocess.run(curl_cmd, capture_output=True, text=True)
-        print(f"Zalo Plugin Response: {res.stdout}")
-    except Exception as e:
-        print(f"Failed to send to Zalo: {e}")
+    # Phase 3: Send via Zalo Plugin (if requested)
+    if send_zalo:
+        chat_id = os.environ.get("CONGVAN_ZALO_CHAT_ID", "2825656851207986406")
+        bridge_url = os.environ.get("ZALO_PLUGIN_URL", "http://host.docker.internal:8787")
+        api_url = f"{bridge_url}/send-attachment"
         
+        # Translate path to Windows Host path using .env configuration or smart fallback
+        win_path = docx_path
+        host_hermes_home = os.environ.get("ZALO_HOST_HERMES_HOME", "").strip()
+        
+        # If not configured in .env, try to guess the Windows user path dynamically
+        if not host_hermes_home:
+            # Fallback to C:\Users\Desktop\.hermes as default
+            host_hermes_home = r"C:\Users\Desktop\.hermes"
+            
+        # Clean slash format of host path
+        host_hermes_home = host_hermes_home.replace("/", "\\").rstrip("\\")
+            
+        if docx_path.startswith("/opt/data/"):
+            win_path = docx_path.replace("/opt/data/", host_hermes_home + "\\").replace("/", "\\")
+        elif docx_path.startswith("/root/.hermes/"):
+            win_path = docx_path.replace("/root/.hermes/", host_hermes_home + "\\").replace("/", "\\")
+        elif _hermes_home and docx_path.startswith(_hermes_home):
+            win_path = docx_path.replace(_hermes_home, host_hermes_home).replace("/", "\\")
+            
+        # Ensure duplicate backslashes are cleaned up (except the prefixing ones if any)
+        if win_path.startswith("\\\\"):
+            win_path = "\\\\" + win_path[2:].replace("\\\\", "\\")
+        else:
+            win_path = win_path.replace("\\\\", "\\")
+            
+        print(f"Sending to Zalo chat_id: {chat_id} via API: {api_url} using Path: {win_path}")
+        try:
+            payload = {
+                "threadId": chat_id,
+                "threadType": "user",
+                "path": win_path,
+                "caption": f"Gửi dự thảo Word cho VB #{so_den}"
+            }
+            data_payload = json.dumps(payload).encode('utf-8')
+            req = urllib.request.Request(
+                api_url, data=data_payload,
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read().decode('utf-8'))
+                print(f"Zalo Plugin Response: {result}")
+        except Exception as e:
+            print(f"Failed to send to Zalo: {e}")
+            
     return docx_path
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--so-den', required=True, help="Số đến của văn bản")
     parser.add_argument('--chat-id', help="Zalo Chat ID to send the file to")
+    parser.add_argument('--zalo', action='store_true', help="Tự động gửi file dự thảo qua Zalo sau khi tạo xong")
     args = parser.parse_args()
     
     if args.chat_id:
         os.environ["CONGVAN_ZALO_CHAT_ID"] = args.chat_id
         
-    generate_draft(args.so_den)
+    generate_draft(args.so_den, send_zalo=args.zalo)
