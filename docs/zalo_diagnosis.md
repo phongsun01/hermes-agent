@@ -1052,16 +1052,19 @@ WARNING ... Zalo: SSE disconnected (SSE status 429); reconnecting in X.Xs
 ```
 Hàng trăm dòng 429 liên tục trong nhiều phút.
 
-### 25. Yêu cầu đường dẫn file Windows khi gửi đính kèm từ Docker (2026-06-29)
+### 26. Zalo Rich Text Formatting (Bold, Italic, Lists) (2026-06-29)
 
-**Vấn đề:** Khi gọi endpoint `/send-attachment` hoặc `/send-image` của Zalo Bridge thông qua Docker, nếu truyền đường dẫn dạng Linux bên trong container (`/opt/data/cron/...`), bridge (chạy trên môi trường Windows Host) sẽ trả về lỗi `HTTP Error 400: Bad Request` hoặc không tìm thấy file.
+**Vấn đề:**
+- Tin nhắn gửi qua Zalo Bridge bị mất in đậm (`**`), in nghiêng (`_`), số thứ tự (`1. `), và ký tự đầu dòng (`* `) do Zalo không hỗ trợ trực tiếp cú pháp markdown truyền thống và Bridge cũ đã xoá sạch markdown bằng biểu thức chính quy (regex) để tránh hiển thị literal dấu sao.
+- Việc chuyển đổi in đậm text thuần dạng `**text**` -> `*text*` cũng bị thất bại do Zalo render plain text thuần túy.
 
-**Nguyên nhân:** Zalo Bridge chạy trực tiếp trên Windows Host (port 8787). Khi xử lý file đính kèm để gửi đi, Node.js process của bridge đọc trực tiếp file từ hệ điều hành Host, do đó nó yêu cầu đường dẫn Windows của file đó, chứ không thể tự phân giải đường dẫn cục bộ bên trong Docker container.
+**Nguyên nhân:**
+- Thư viện `zca-js` của Zalo Bridge yêu cầu định dạng in đậm / in nghiêng thông qua tham số `styles` (mảng Style object dạng `{ start, len, st }`) đi kèm message gốc đã strip định dạng.
+- Regex in nghiêng đơn cũ `\*(?!\*)(.+?)\*(?!\*)` nhận diện nhầm các ký tự gạch đầu dòng của list (`* Dòng 1`, `* Dòng 2`) là một khối in nghiêng siêu lớn và xoá sạch dấu sao đầu dòng.
 
 **Cách khắc phục:**
-Khi gửi đính kèm từ trong container tới Bridge, phải chuyển đổi đường dẫn sang dạng Windows Host tương ứng:
-- Trong Container: `/opt/data/cron/cong-van-den/attachments/2490/file.docx`
-- Chuyển thành: `C:\Users\Desktop\.hermes\cron\cong-van-den\attachments\2490\file.docx`
+1. **Parse Markdown sang Rich Styles:** Trong hàm `sendText` của `zaloClient.js`, bổ sung thuật toán duyệt chuỗi (regex matchAll) để bóc tách `**bold**`, `__bold__`, và `_italic_` thành các cặp `{ start, len, st }` tương ứng (với `st: "b"` cho bold và `st: "i"` cho italic) rồi gửi kèm object `content.styles`.
+2. **Khắc phục List Bullet Point:** Sửa regex pattern chỉ match `_italic_` đối với in nghiêng, loại bỏ hoàn toàn việc match `*italic*` bằng dấu sao đơn để tránh nhận nhầm và nuốt mất ký tự gạch đầu dòng (`* `) của danh sách.
 
 ---
 
