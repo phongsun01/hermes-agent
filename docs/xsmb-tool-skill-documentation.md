@@ -198,3 +198,31 @@ Sau đó `docker restart hermes`.
 | `~/.hermes/skills/<skill>/SKILL.md` | Không có cảnh báo "tool chưa có", hướng dẫn gọi tool đúng cú pháp |
 
 
+---
+
+## 📊 6. Mô hình dự báo Bayesian Compound-Dirichlet-Multinomial (CDM) (Cập nhật 01/07/2026)
+
+Mô hình học thuật mới này được xây dựng dựa trên bài báo khoa học *"Predicting Winning Lottery Numbers" (2024 - arXiv:2403.12836)*.
+
+### 🧠 Nguyên lý hoạt động
+Mô hình CDM tiếp cận bài toán dự đoán xổ số bằng phương pháp thống kê Bayes:
+*   Xem kết quả mở thưởng là các biến phân loại (Categorical variables) tuân theo phân phối **Multinomial**.
+*   Sử dụng phân phối liên hợp **Dirichlet** làm phân phối tiên nghiệm (Prior) để mô hình hóa độ lệch/tần suất phân bổ xác suất xuất hiện của các quả bóng.
+*   Công thức kỳ vọng của số lần xuất hiện cho số $j$ trong kỳ tiếp theo ($n+1$):
+    $$E[Z_{n+1, j} | X] = M \cdot \frac{\alpha_j + n_j}{\alpha_0 + \sum_{k=1}^K n_k}$$
+    *   $M = 27$ (Số lượng số được rút mỗi ngày đối với XSMB).
+    *   $n_j$: Tổng số lần số $j$ đã về trong $N$ ngày lịch sử.
+    *   $\alpha_j$: Tham số phân phối tiên nghiệm Dirichlet của số $j$.
+    *   $\alpha_0 = \sum_{k=1}^K \alpha_k$: Tham số tập trung (precision parameter).
+
+### 🛠️ Cách triển khai trong plugin `xsmb`
+Mô hình được hiện thực hóa qua tệp [xsmb_cdm.py](file:///d:/Antigravity/Hermes/plugins/xsmb/xsmb_cdm.py) nằm trong plugin:
+1.  **Ước lượng tham số (Method of Moments):** Hàm `estimate_dirichlet_multinomial` ước lượng tham số $\alpha_0$ động bằng phương pháp mô-men dựa trên tỷ lệ trung bình $\bar{p}_j$ và phương sai mẫu $S_j^2$ của từng con số trong chu kỳ lịch sử $N$ ngày.
+2.  **Tính kỳ vọng:** Dùng giá trị $\alpha_0$ ước lượng được để tính toán độ tập trung của tiên nghiệm, sau đó tính Expected Count cho tất cả 100 số từ 00 đến 99 và chọn ra Top 10 số có kỳ vọng cao nhất.
+
+### 🔌 Cách gọi và hiển thị trên Zalo
+*   **Tool:** Tool `predict_xsmb` sẽ đồng thời trả về kết quả dự đoán của mô hình Monte Carlo và mô hình Bayesian CDM.
+*   **Skill:** File [SKILL.md](file:///d:/Antigravity/Hermes/skills/xs/SKILL.md) được cập nhật để chỉ dẫn Bot đọc dữ liệu trường `top_cdm` và hiển thị kết quả trực quan trên giao diện Zalo cho người dùng.
+
+
+
