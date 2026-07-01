@@ -13,6 +13,7 @@ import json
 import datetime
 import sqlite3
 import pandas as pd
+import numpy as np
 
 # Thêm plugin path để import
 PLUGIN_DIR = "/opt/data/plugins/xsmb"
@@ -82,6 +83,21 @@ def evaluate_today_accuracy(today_str, today_lotos):
         pascal_num, top_mc = pascal_mc.monte_carlo_with_pascal(df_processed, last_days=30)
         pascal_val = int(pascal_num)
         
+        # 2. Chạy thuật toán CDM Bayesian ngày hôm qua
+        import xsmb_cdm
+        n_days = len(df_processed)
+        X = np.zeros((n_days, 100), dtype=np.float32)
+        for i, row in df_processed.iterrows():
+            for col in ['special', 'g1'] + [f'num{k}' for k in range(2, 27)]:
+                val = int(row[col]) % 100
+                X[i, val] += 1.0
+        alpha, alpha_0 = xsmb_cdm.estimate_dirichlet_multinomial(X)
+        n_j = np.sum(X, axis=0)
+        sum_n = np.sum(n_j)
+        M = 27
+        expected_counts = M * (alpha + n_j) / (alpha_0 + sum_n)
+        top_cdm = np.argsort(expected_counts)[-10:][::-1]
+        
         # Đối chiếu kết quả hôm nay
         pascal_hit = pascal_val in today_lotos
         
@@ -89,6 +105,11 @@ def evaluate_today_accuracy(today_str, today_lotos):
         for num, count in top_mc[:10]:
             if num in today_lotos:
                 mc_hits.append(num)
+                
+        cdm_hits = []
+        for num in top_cdm:
+            if num in today_lotos:
+                cdm_hits.append(num)
                 
         # Trình bày báo cáo
         report = []
@@ -104,6 +125,12 @@ def evaluate_today_accuracy(today_str, today_lotos):
         report.append(f"  - Top 10 Monte Carlo: Trung {len(mc_hits)}/10 so")
         if mc_hits:
             report.append(f"    👉 Chi tiet so trung: {mc_hits_str}")
+            
+        # 3. CDM (Bayesian)
+        cdm_hits_str = " - ".join(f"{n:02d}" for n in sorted(cdm_hits)) if cdm_hits else "Khong trung so nao"
+        report.append(f"  - Top 10 Bayesian CDM: Trung {len(cdm_hits)}/10 so")
+        if cdm_hits:
+            report.append(f"    👉 Chi tiet so trung: {cdm_hits_str}")
         
         return "\n".join(report)
         
