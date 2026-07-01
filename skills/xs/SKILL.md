@@ -1,49 +1,79 @@
 ---
 name: xs
 description: "Xem và thống kê kết quả xổ số miền Bắc (XSMB) hàng ngày và phân tích lô tô lịch sử"
+version: "2.0.0"
 ---
 
 # Hướng dẫn Kỹ năng Xổ số Miền Bắc (XSMB)
 
-Kỹ năng này giúp người dùng xem kết quả xổ số miền Bắc và thực hiện thống kê tần suất lô tô hoặc soi cầu bằng mô phỏng Pascal & Monte Carlo dựa trên dữ liệu lịch sử trong database SQLite.
+Kỹ năng này giúp xem kết quả xổ số miền Bắc và thực hiện thống kê tần suất lô tô.
 
-## Các lệnh hỗ trợ ban đầu:
-1. `/xs homnay` hoặc `/xs`: Xem kết quả xổ số miền Bắc mới nhất (ngày hôm nay).
-2. `/xs <date>`: Xem kết quả xổ số miền Bắc của ngày cụ thể.
-3. `/xs lo <số ngày>`: Thống kê tần suất xuất hiện lô tô đơn giản dựa theo lịch sử `N` ngày trước đó (ví dụ: `/xs lo 30`).
-4. `/xs soilo <số ngày>`: Soi cầu kết hợp thuật toán Pascal & mô phỏng Monte Carlo dựa theo lịch sử `N` ngày (mặc định là 30 ngày nếu để trống).
+## Các lệnh hỗ trợ
+1. `/xs homnay` hoặc `/xs` — Xem KQXSMB mới nhất
+2. `/xs <date>` — Xem kết quả ngày cụ thể
+3. `/xs lo <số ngày>` — Thống kê tần suất lô tô trong N ngày gần nhất
+4. `/xs soilo <số ngày>` — Soi cầu Pascal + Monte Carlo (mặc định 30 ngày)
 
----
+## 🔧 Tool có sẵn (ưu tiên dùng tool thay browser)
 
-## Hướng dẫn xử lý cho Agent (LLM):
+Hệ thống có **2 tool Hermes** đã được đăng ký và sẵn sàng sử dụng:
 
-### 1. Phân tích tham số ngày (<date>)
-Khi người dùng nhập ngày, hãy tự động nhận diện và chuẩn hóa ngày đó về định dạng `dd-mm-yyyy` trước khi truyền vào tool `get_xsmb`:
-*   *Hôm nay/homnay* -> Không truyền tham số `date` (hoặc truyền ngày hôm nay dạng `dd-mm-yyyy`).
-*   *Hôm qua/homqua* -> Ngày hôm qua dạng `dd-mm-yyyy`.
-*   *15-06-2026*, *15/06/2026*, *15062026* -> `15-06-2026`.
-*   *15/6/2026*, *15/6* (nếu khuyết năm, hãy tự điền năm hiện tại 2026) -> `15-06-2026`.
+### `get_xsmb` — Lấy kết quả XSMB
+- Tham số `date` (string, tùy chọn): ngày cần xem, định dạng `dd-mm-yyyy`. Để trống = lấy hôm nay.
+- Tham số `limit_days` (integer, tùy chọn): lấy N ngày gần nhất từ database.
 
-**Hành động:** Gọi công cụ `get_xsmb(date="ngày_đã_chuẩn_hóa")`.
+**Ví dụ gọi:**
+- Xem hôm nay: `get_xsmb({})` hoặc `get_xsmb({"date": "01-07-2026"})`
+- Xem ngày cụ thể: `get_xsmb({"date": "30-06-2026"})`
+- Lấy 30 ngày gần nhất: `get_xsmb({"limit_days": 30})`
 
----
+### `predict_xsmb` — Soi cầu Pascal + Monte Carlo
+- Tham số `last_days` (integer, tùy chọn): số ngày lịch sử để phân tích. Mặc định 30.
 
-### 2. Xử lý lệnh thống kê lô tô thường (`/xs lo <số ngày>`)
-Khi nhận lệnh `/xs lo <số ngày>` (ví dụ: `/xs lo 30`):
-1. **Lấy dữ liệu:** Gọi công cụ `get_xsmb(limit_days=số_ngày)`.
-2. **Tính toán tần suất:** Trích xuất 2 số cuối (lô) của tất cả các giải từ GDB đến G7 trong danh sách kết quả trả về. Đếm số lần xuất hiện của mỗi cặp số từ `00` đến `99`.
-3. **Tổng hợp kết quả:**
-   * Tìm top 5 cặp số xuất hiện **nhiều nhất** (kèm số lần xuất hiện).
-   * Tìm top 5 cặp số xuất hiện **ít nhất** hoặc chưa từng xuất hiện trong khoảng thời gian đó.
-   * Thống kê xem đầu số nào (0 đến 9) xuất hiện nhiều nhất/ít nhất.
-4. **Trình bày:** Hiển thị kết quả dưới dạng một báo cáo phân tích ngắn gọn, trực quan, dễ hiểu gửi lại cho người dùng trên Zalo.
+**Ví dụ gọi:**
+- Soi cầu 30 ngày: `predict_xsmb({})` hoặc `predict_xsmb({"last_days": 30})`
+- Soi cầu 60 ngày: `predict_xsmb({"last_days": 60})`
 
----
+## Luồng xử lý từng lệnh
 
-### 3. Xử lý lệnh soi cầu Pascal & Monte Carlo (`/xs soilo <số ngày>`)
-Khi nhận lệnh `/xs soilo <số ngày>`:
-1. **Phân tích tham số:** 
-   * Nếu người dùng truyền số ngày (ví dụ: `/xs soilo 50`), sử dụng tham số `last_days=50`.
-   * Nếu người dùng để trống số ngày hoặc ghi chung chung (ví dụ: `/xs soilo`), sử dụng giá trị mặc định `last_days=30`.
-2. **Kích hoạt công cụ:** Gọi công cụ `predict_xsmb(last_days=số_ngày)`.
-3. **Xử lý phản hồi:** Nhận kết quả từ công cụ và hiển thị cho người dùng kết quả của thuật toán Pascal từ kỳ quay gần nhất cùng danh sách Top 10 con số tiềm năng được mô phỏng bởi thuật toán Monte Carlo kèm theo tỷ lệ phần trăm cụ thể.
+### `/xs` hoặc `/xs homnay`
+1. Gọi `get_xsmb({})` → nhận về JSON kết quả
+2. Trình bày đầy đủ các giải từ GĐB đến G7 theo dạng text dễ đọc
+
+### `/xs <date>`
+1. Chuyển đổi date sang định dạng `dd-mm-yyyy` (xem bảng bên dưới)
+2. Gọi `get_xsmb({"date": "<dd-mm-yyyy>"})` → nhận về kết quả ngày đó
+3. Nếu không có trong database, tool sẽ tự động tải từ web
+
+### `/xs lo <số ngày>`
+1. Gọi `get_xsmb({"limit_days": <số ngày>})` → nhận về danh sách kết quả
+2. Từ JSON trả về, lấy **2 số cuối** của tất cả 27 dãy số mỗi ngày
+3. Đếm tần suất các cặp 00→99
+4. Tổng hợp: Top 5 cặp nhiều nhất / ít nhất, đầu số mạnh/yếu
+
+### `/xs soilo <số ngày>`
+1. Gọi `predict_xsmb({"last_days": <số ngày>})` → nhận về JSON với:
+   - `pascal_prediction`: cặp Pascal tính từ kỳ gần nhất
+   - `top_monte_carlo`: Top 10 cặp số + xác suất %
+2. Trình bày kết quả rõ ràng
+
+## Chuyển đổi ngày
+- **Hôm nay / homnay** → Ngày hiện tại giờ VN (UTC+7)
+- **Hôm qua / homqua** → Ngày hôm qua
+- **15-06-2026 / 15/06/2026 / 15062026** → `15-06-2026`
+- **15/6** (khuyết năm) → `15-06-{năm hiện tại}`
+
+## Dự phòng bằng Browser (khi tool gặp lỗi)
+
+Nếu tool báo lỗi, dùng browser vào: **https://xsmb.vn/xsmb.html**
+
+1. `browser_navigate(url="https://xsmb.vn/xsmb.html")`
+2. Đọc kết quả từ snapshot — trang hiển thị bảng đầy đủ 27 dãy
+
+## Lưu ý trình bày
+- XSMB quay lúc **18h10-18h30** hàng ngày. Trước giờ đó kết quả hôm nay chưa có.
+- Trình bày kết quả qua Zalo: **không dùng markdown**, xuống dòng bằng \n, dùng emoji cho trực quan.
+- Luôn ghi rõ ngày kết quả để tránh nhầm lẫn.
+
+## Tham khảo
+- `references/data-sources.md` — danh sách nguồn dữ liệu XSMB đã kiểm tra
