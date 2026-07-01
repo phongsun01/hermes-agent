@@ -112,3 +112,89 @@ C:\Users\Desktop\.hermes\plugins\xsmb/
 #### Cách hoạt động:
 Khi container `hermes` khởi động lại, nó sẽ tự động quét thư mục `/opt/data/plugins/xsmb` (tương ứng với `C:\Users\Desktop\.hermes\plugins\xsmb`), đọc file `plugin.yaml`, chạy file `__init__.py` để đăng ký các tool `get_xsmb` và `predict_xsmb` vào hệ thống một cách độc lập mà không cần can thiệp hay sửa đổi bất kỳ file Core nào trong mã nguồn gốc.
 
+---
+
+## 🐛 5. Nhật Ký Sửa Lỗi (01/07/2026)
+
+Sau khi khởi động lại container, Zalo bot vẫn báo "tool `get_xsmb` chưa có". Quá trình debug đã xác định được **3 tầng lỗi xếp chồng** cần giải quyết theo thứ tự:
+
+---
+
+### Lỗi 1: Plugin chưa được kích hoạt
+
+**Triệu chứng:** `hermes plugins list` hiển thị plugin `xsmb` ở trạng thái `not enabled`.
+
+**Nguyên nhân:** Hermes plugin theo cơ chế **opt-in** — plugin mới được thêm vào sẽ mặc định ở trạng thái tắt, kể cả khi code đã có trong thư mục.
+
+**Cách sửa:**
+```bash
+docker exec hermes hermes plugins enable xsmb
+docker restart hermes
+```
+
+---
+
+### Lỗi 2: Thiếu thư viện Python trong venv của container
+
+**Triệu chứng:** Sau khi kích hoạt plugin, log hiện:
+```
+Failed to load plugin 'xsmb': No module named 'pandas'
+```
+
+**Nguyên nhân:** Plugin `xsmb` dùng `pandas`, `numpy`, `torch` — nhưng môi trường Python ảo của container (`/opt/hermes/.venv`) là một môi trường cô lập riêng, **không chia sẻ** các thư viện đã cài trên máy thật.
+
+**Cách sửa:** Dùng `uv` (trình quản lý gói có sẵn trong container) để cài đặt trực tiếp vào venv của container:
+```bash
+docker exec hermes uv pip install pandas numpy torch \
+  --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+> ⚠️ **Lưu ý quan trọng:** Các thư viện cài bằng `uv pip install` trực tiếp vào container sẽ **bị mất** mỗi khi image Docker được build lại. Để cố định, cần thêm vào `Dockerfile` hoặc dùng volume mount riêng cho site-packages.
+
+---
+
+### Lỗi 3: Platform Zalo không được gán toolset `xsmb`
+
+**Triệu chứng:** Sau khi plugin load OK (kiểm tra bằng `python -c "import model_tools; ..."` trả về `True`), Zalo bot vẫn báo tool chưa có. Hỏi bot xem tool gì có sẵn → không thấy `get_xsmb`.
+
+**Nguyên nhân (gốc rễ):** Trong `~/.hermes/config.yaml` có phần `platform_toolsets` định nghĩa **riêng biệt** danh sách toolset cho từng platform. Platform `zalo` không được liệt kê trong phần này nên nhận toolset mặc định — vốn không bao gồm `xsmb`.
+
+**Cách sửa:** Thêm mục `zalo` vào `platform_toolsets` trong `~/.hermes/config.yaml`:
+```yaml
+platform_toolsets:
+  cli:
+  - hermes-cli
+  telegram:
+  - hermes-telegram
+  # ... các platform khác ...
+  zalo:        # <-- Thêm mục này
+  - hermes-cli
+  - xsmb
+```
+Sau đó `docker restart hermes`.
+
+---
+
+### Lỗi 4 (Phụ): SKILL.md hướng dẫn sai
+
+**Triệu chứng:** Dù tool đã được đăng ký, bot vẫn báo cáo "tool chưa có" và đề xuất dùng browser thay thế.
+
+**Nguyên nhân:** File `SKILL.md` cũ có dòng `⚠️ Quan trọng: Skill này... các tool đó **chưa được triển khai**`. Bot đọc hướng dẫn này và tin theo, bỏ qua tool thực tế trong registry.
+
+**Cách sửa:** Xóa dòng cảnh báo sai, cập nhật SKILL.md thành v2.0 hướng dẫn bot:
+- Gọi trực tiếp `get_xsmb({...})` với cú pháp tham số rõ ràng
+- Gọi trực tiếp `predict_xsmb({...})` với tham số `last_days`
+- Chỉ dùng browser làm dự phòng khi tool báo lỗi
+
+---
+
+### Tóm tắt danh sách file cần kiểm tra khi tích hợp tool mới cho Zalo bot
+
+| File / Nơi kiểm tra | Nội dung cần xác nhận |
+|---|---|
+| `docker exec hermes hermes plugins list` | Plugin ở trạng thái `enabled` |
+| `docker exec hermes uv pip list` | Các thư viện Python cần thiết đã cài |
+| `~/.hermes/config.yaml` → `platform_toolsets.zalo` | Toolset của plugin đã được gán cho platform `zalo` |
+| `~/.hermes/skills/<skill>/SKILL.md` | Không có cảnh báo "tool chưa có", hướng dẫn gọi tool đúng cú pháp |
+
+
