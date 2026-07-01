@@ -17,6 +17,7 @@ hermes-agent/
 │       ├── xsmb_fetcher.py      # [NEW] Crawl dữ liệu và parse từ Web
 │       ├── xsmb_init.py         # [NEW] Khởi tạo dữ liệu lịch sử (tháng 6/2026)
 │       ├── pascal_mc.py         # [NEW] Tính cầu Pascal & giả lập Monte Carlo
+│       ├── xsmb_lstm_pascal.py  # [NEW] Mạng LSTM lai kết hợp tính năng cầu Pascal
 │       └── xsmb_results.db      # [NEW] Cơ sở dữ liệu SQLite lưu trữ kết quả xổ số
 └── docs/
     └── xsmb-tool-skill-documentation.md  # [NEW] Tài liệu hướng dẫn này
@@ -66,6 +67,10 @@ hermes-agent/
 #### 🔹 [scripts/xsmb/pascal_mc.py](file:///d:/Antigravity/Hermes/scripts/xsmb/pascal_mc.py)
 *   **Tác dụng:** Dự đoán cầu Pascal kết hợp với mô phỏng Monte Carlo dựa trên phân phối thực tế.
 *   **Chức năng:** Đọc dữ liệu từ SQLite DB, dựng DataFrame mô phỏng các cột kết quả, tính toán cầu Pascal cho kỳ quay gần nhất, đồng thời chạy 20,000 lượt giả lập Monte Carlo dựa trên trọng số phân phối của 30 ngày trước đó để đưa ra top 10 con số có xác suất xuất hiện cao nhất.
+
+#### 🔹 [scripts/xsmb/xsmb_lstm_pascal.py](file:///d:/Antigravity/Hermes/scripts/xsmb/xsmb_lstm_pascal.py)
+*   **Tác dụng:** Mô hình học sâu LSTM lai kết hợp tính năng cầu Pascal làm đầu vào.
+*   **Chức năng:** Thiết kế dữ liệu chuỗi thời gian đầu vào 200 chiều (100 chiều presence vector thực tế + 100 chiều one-hot vector đại diện cho kết quả cầu Pascal ngày hôm đó). Mạng LSTM học mối tương quan sâu giữa cầu Pascal và kết quả thực tế qua thời gian để dự báo xác suất của 100 cặp số cho ngày kế tiếp.
 
 ---
 
