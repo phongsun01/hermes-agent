@@ -87,23 +87,74 @@ def execute_action(action_type, so_den, extra_args):
     so_den = str(so_den).strip()
     print(f"Executing remote {action_type} for document #{so_den}...")
     
+    STORAGE_STATE_FILE = os.path.join(_hermes_home, "cron", "cong-van-den", ".playwright_storage.json")
+    
     p = sync_playwright().start()
     browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-    page = browser.new_page()
     
     screenshot_dir = os.path.join(_hermes_home, "cron", "cong-van-den", "attachments", so_den)
     os.makedirs(screenshot_dir, exist_ok=True)
     
     try:
-        # 1. Login
-        page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=45000)
-        page.wait_for_timeout(2000)
-        page.fill('#IDToken1', USERNAME)
-        page.fill('#IDToken2', PASSWORD)
-        page.click('#btnLogin')
-        page.wait_for_timeout(3000)
-        try: page.wait_for_load_state("networkidle", timeout=15000)
-        except: pass
+        context = None
+        session_reused = False
+        if os.path.exists(STORAGE_STATE_FILE):
+            try:
+                print(f"Attempting to reuse Playwright storage state...")
+                context = browser.new_context(storage_state=STORAGE_STATE_FILE)
+                page = context.new_page()
+                page.set_default_timeout(60000)
+                
+                # Go to DOCS_URL and check if redirect to login page or has login elements
+                page.goto(DOCS_URL, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(2000)
+                
+                if "Login.aspx" not in page.url and not page.query_selector("#IDToken1"):
+                    print(f"Playwright storage state is valid. Session reused!")
+                    session_reused = True
+                else:
+                    print(f"Playwright storage state expired or invalid.")
+                    page.close()
+                    context.close()
+                    context = None
+            except Exception as reuse_err:
+                print(f"Failed to reuse storage state: {reuse_err}")
+                if context:
+                    try: context.close()
+                    except: pass
+                context = None
+                
+        if not session_reused:
+            print(f"Performing fresh login...")
+            context = browser.new_context()
+            page = context.new_page()
+            page.set_default_timeout(60000)
+            
+            # 1. Login
+            page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(2000)
+            page.fill('#IDToken1', USERNAME)
+            page.fill('#IDToken2', PASSWORD)
+            page.click('#btnLogin')
+            page.wait_for_timeout(3000)
+            try: page.wait_for_load_state("networkidle", timeout=15000)
+            except: pass
+            
+            # Handle password warning page
+            if "CanhBaoMatKhau" in page.url or "PasswordWarning" in page.url:
+                try:
+                    btn = page.query_selector("input[type=submit], button")
+                    if btn:
+                        btn.click()
+                        page.wait_for_timeout(3000)
+                except: pass
+                
+            # Save storage state for reuse
+            try:
+                os.makedirs(os.path.dirname(STORAGE_STATE_FILE), exist_ok=True)
+                context.storage_state(path=STORAGE_STATE_FILE)
+                print(f"Saved Playwright storage state.")
+            except: pass
         
         # 2. Select unit
         page.goto(BASE_URL + "/Default.aspx?tabid=56", wait_until="domcontentloaded", timeout=30000)

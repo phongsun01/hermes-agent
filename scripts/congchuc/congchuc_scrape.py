@@ -1103,7 +1103,9 @@ def main():
     for doc, urgency in urgent_docs:
         so_den = doc.get('so_den', '')
         so_ky_hieu = doc.get('so_ky_hieu', '')
-        trich_yeu = doc.get('trich_yeu', '')[:80]
+        trich_yeu = doc.get('trich_yeu', '')
+        if len(new_docs) >= 10:
+            trich_yeu = trich_yeu[:80]
         lines.append(f"🔴 [{urgency}] #{so_den} {so_ky_hieu}")
         lines.append(f"   {trich_yeu}")
     if urgent_docs:
@@ -1113,7 +1115,9 @@ def main():
         so_den = doc.get('so_den', '')
         so_ky_hieu = doc.get('so_ky_hieu', '')
         tac_gia = doc.get('tac_gia', '')
-        trich_yeu = doc.get('trich_yeu', '')[:70]
+        trich_yeu = doc.get('trich_yeu', '')
+        if len(new_docs) >= 10:
+            trich_yeu = trich_yeu[:70]
         do_khan = get_urgency(doc)
         urgency_tag = f"[{do_khan}]" if do_khan != "Thường" else ""
         but_phe = doc.get('but_phe', '')

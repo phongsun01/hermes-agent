@@ -87,33 +87,74 @@ def pw_get_documents():
     
     MAX_RETRIES = 2
     last_error = None
+    STORAGE_STATE_FILE = os.path.join(_hermes_home, "cron", "cong-van-den", ".playwright_storage.json")
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-                page = browser.new_page()
                 
-                # Login
-                page.goto(BASE + "/SSO/Login.aspx", wait_until="domcontentloaded", timeout=60000)
-                page.wait_for_timeout(2000)
-                page.fill('#IDToken1', USER)
-                page.fill('#IDToken2', PASS)
-                page.click('#btnLogin')
-                page.wait_for_timeout(5000)
-                try: page.wait_for_load_state("networkidle", timeout=15000)
-                except: pass
-                
-                if "CanhBaoMatKhau" in page.url or "PasswordWarning" in page.url:
+                context = None
+                session_reused = False
+                if os.path.exists(STORAGE_STATE_FILE):
                     try:
-                        btn = page.query_selector("input[type=submit], button")
-                        if btn: btn.click(); page.wait_for_timeout(3000)
-                    except: pass
+                        print(f"[INFO] Attempting to reuse Playwright storage state...", file=sys.stderr)
+                        context = browser.new_context(storage_state=STORAGE_STATE_FILE)
+                        page = context.new_page()
+                        page.set_default_timeout(60000)
+                        
+                        # Go to Văn bản đi search directly
+                        page.goto(f"{BASE}/Default.aspx?tabid={TABID}", wait_until="domcontentloaded", timeout=30000)
+                        page.wait_for_timeout(2000)
+                        
+                        if "Login.aspx" not in page.url and not page.query_selector("#IDToken1"):
+                            print(f"[INFO] Playwright storage state is valid. Session reused!", file=sys.stderr)
+                            session_reused = True
+                        else:
+                            print(f"[INFO] Playwright storage state expired or invalid.", file=sys.stderr)
+                            page.close()
+                            context.close()
+                            context = None
+                    except Exception as reuse_err:
+                        print(f"[WARNING] Failed to reuse storage state: {reuse_err}", file=sys.stderr)
+                        if context:
+                            try: context.close()
+                            except: pass
+                        context = None
                 
-                # Navigate to Văn bản đi search directly
-                page.goto(f"{BASE}/Default.aspx?tabid={TABID}", wait_until="domcontentloaded", timeout=60000)
-                page.wait_for_timeout(3000)
-                try: page.wait_for_load_state("networkidle", timeout=20000)
-                except: pass
+                if not session_reused:
+                    print(f"[INFO] Performing fresh login...", file=sys.stderr)
+                    context = browser.new_context()
+                    page = context.new_page()
+                    page.set_default_timeout(60000)
+                    
+                    # Login
+                    page.goto(BASE + "/SSO/Login.aspx", wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_timeout(2000)
+                    page.fill('#IDToken1', USER)
+                    page.fill('#IDToken2', PASS)
+                    page.click('#btnLogin')
+                    page.wait_for_timeout(5000)
+                    try: page.wait_for_load_state("networkidle", timeout=15000)
+                    except: pass
+                    
+                    if "CanhBaoMatKhau" in page.url or "PasswordWarning" in page.url:
+                        try:
+                            btn = page.query_selector("input[type=submit], button")
+                            if btn: btn.click(); page.wait_for_timeout(3000)
+                        except: pass
+                    
+                    # Save storage state
+                    try:
+                        os.makedirs(os.path.dirname(STORAGE_STATE_FILE), exist_ok=True)
+                        context.storage_state(path=STORAGE_STATE_FILE)
+                        print(f"[INFO] Saved Playwright storage state.", file=sys.stderr)
+                    except: pass
+                    
+                    # Navigate to Văn bản đi search directly
+                    page.goto(f"{BASE}/Default.aspx?tabid={TABID}", wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_timeout(3000)
+                    try: page.wait_for_load_state("networkidle", timeout=20000)
+                    except: pass
                 
                 # Set date filters
                 page.fill('#dnn_ctr4744_VBDi_TimKiem_dtpNgayPhatHanhTu_dateInput', two_days_ago)
@@ -189,7 +230,9 @@ def main():
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
         print(f"📋 {len(new_docs)} VB đi mới ({now_str})\n")
         for i, d in enumerate(new_docs, 1):
-            trich = d['trich_yeu'][:70]
+            trich = d['trich_yeu']
+            if len(new_docs) >= 10:
+                trich = trich[:70]
             print(f"{i}. {d['so_ky_hieu']} ({d['ngay_phat_hanh']})")
             print(f"   {trich} — {d['don_vi_soan_thao']}")
     else:
