@@ -1,0 +1,6 @@
+name: xsmb
+version: 1.0.0
+description: "XSMB toolset for fetching and predicting lottery results"
+provides_tools:
+  - get_xsmb
+  - predict_xsmb
