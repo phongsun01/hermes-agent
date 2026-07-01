@@ -31,6 +31,8 @@ from typing import List, Dict, Any, Set, Optional
 _HERMES_CORE_TOOLS = [
     # Web
     "web_search", "web_extract",
+    # XSMB
+    "get_xsmb", "predict_xsmb",
     # Terminal + process management
     "terminal", "process",
     # File manipulation

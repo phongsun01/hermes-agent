@@ -233,7 +233,7 @@ def main():
             trich = d['trich_yeu']
             if len(new_docs) >= 10:
                 trich = trich[:70]
-            print(f"{i}. {d['so_ky_hieu']} ({d['ngay_phat_hanh']})")
+            print(f"{i}. **{d['so_ky_hieu']}** ({d['ngay_phat_hanh']})")
             print(f"   {trich} — {d['don_vi_soan_thao']}")
     else:
         # Silent — no new docs

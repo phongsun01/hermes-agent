@@ -1106,7 +1106,7 @@ def main():
         trich_yeu = doc.get('trich_yeu', '')
         if len(new_docs) >= 10:
             trich_yeu = trich_yeu[:80]
-        lines.append(f"🔴 [{urgency}] #{so_den} {so_ky_hieu}")
+        lines.append(f"🔴 [{urgency}] **#{so_den}** | **{so_ky_hieu}**")
         lines.append(f"   {trich_yeu}")
     if urgent_docs:
         lines.append("")
@@ -1139,7 +1139,7 @@ def main():
             reply_icon = ""
         else:
             reply_icon = ""
-        lines.append(f"{i}. {urgency_tag} #{so_den} | {so_ky_hieu}{af_tag}{reply_icon}{tag_str}")
+        lines.append(f"{i}. {urgency_tag} **#{so_den}** | **{so_ky_hieu}**{af_tag}{reply_icon}{tag_str}")
         lines.append(f"   {tac_gia} — {trich_yeu}{bp_tag}")
 
 
