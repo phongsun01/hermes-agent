@@ -82,3 +82,33 @@ hermes-agent/
     *   Khai báo mô tả của slash command trên giao diện chat Zalo.
     *   Hướng dẫn LLM cách chuyển đổi linh hoạt định dạng ngày từ ngôn ngữ tự nhiên thành `dd-mm-yyyy` để gọi Tool.
     *   Cung cấp thuật toán phân tích xác suất lô tô (cách đếm 2 số cuối, lọc top 5 lô ra nhiều nhất/ít nhất) để LLM thực hiện phân tích mỗi khi nhận lệnh `/xs lo <số ngày>`.
+
+---
+
+## 🐳 4. Cấu Hình Đặc Thù Trong Môi Trường Docker (Cập nhật 01/07/2026)
+
+### ⚠️ Vấn đề giới hạn Mount của Container
+Trong môi trường chạy thực tế:
+*   Mã nguồn phát triển ở `D:\Antigravity\Hermes` **không** được mount trực tiếp vào container Docker.
+*   Container `hermes` chỉ mount duy nhất thư mục cá nhân: `C:\Users\Desktop\.hermes` -> `/opt/data` bên trong container.
+*   Do đó, các chỉnh sửa trực tiếp vào mã nguồn Core Tool hoặc `toolsets.py` của dự án sẽ **không** được phản ánh lên Zalo Bot chạy trong Docker.
+
+### 💡 Giải pháp: Đóng gói Custom Plugin
+Để vượt qua giới hạn trên, toàn bộ code backend của xổ số đã được đóng gói thành một **Custom Plugin** đặt trong thư mục được mount của user profile:
+*   **Đường dẫn plugin:** [C:\Users\Desktop\.hermes\plugins\xsmb](file:///C:/Users/Desktop/.hermes/plugins/xsmb)
+
+#### Cấu trúc file của Plugin:
+```
+C:\Users\Desktop\.hermes\plugins\xsmb/
+├── plugin.yaml          # Định nghĩa plugin và khai báo các tool `get_xsmb` & `predict_xsmb`
+├── __init__.py          # Đăng ký các hàm xử lý của tool vào registry của Agent tại thời điểm boot
+├── xsmb_db.py           # Quản lý SQLite DB kết quả xổ số (DB_PATH trỏ về thư mục plugin)
+├── xsmb_fetcher.py      # Tải và parse kết quả xổ số từ Web
+├── pascal_mc.py         # Dự đoán cầu Pascal và Monte Carlo
+├── xsmb_lstm_pascal.py  # Dự đoán học sâu LSTM + Pascal
+└── xsmb_results.db      # Cơ sở dữ liệu SQLite chứa kết quả đã cào
+```
+
+#### Cách hoạt động:
+Khi container `hermes` khởi động lại, nó sẽ tự động quét thư mục `/opt/data/plugins/xsmb` (tương ứng với `C:\Users\Desktop\.hermes\plugins\xsmb`), đọc file `plugin.yaml`, chạy file `__init__.py` để đăng ký các tool `get_xsmb` và `predict_xsmb` vào hệ thống một cách độc lập mà không cần can thiệp hay sửa đổi bất kỳ file Core nào trong mã nguồn gốc.
+
