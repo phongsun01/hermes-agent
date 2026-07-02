@@ -2434,6 +2434,21 @@ DEFAULT_CONFIG = {
     "paste_collapse_threshold_fallback": 5,
     "paste_collapse_char_threshold": 2000,
 
+    # Timetable (Thời khóa biểu - TKB) configuration
+    "tkb": {
+        "google_sheet_url": "",
+        "notion_database_id": "",
+        "notion_token": "",
+        "timezone": "Asia/Ho_Chi_Minh",
+        "cron": {
+            "enabled": True,
+            "daily_morning_report": "06:00",
+            "daily_evening_report": "21:00",
+            "weekly_report": "Mon 07:00",
+            "deliver": "zalo",
+        },
+    },
+
 
     # Config schema version - bump this when adding new required fields
     "_config_version": 28,

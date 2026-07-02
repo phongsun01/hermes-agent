@@ -33,6 +33,8 @@ _HERMES_CORE_TOOLS = [
     "web_search", "web_extract",
     # XSMB
     "get_xsmb", "predict_xsmb",
+    # TKB
+    "get_tkb",
     # Terminal + process management
     "terminal", "process",
     # File manipulation

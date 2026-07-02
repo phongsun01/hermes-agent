@@ -615,6 +615,13 @@ def sync_skills(quiet: bool = False) -> dict:
     _write_manifest(manifest)
     optional_provenance_backfilled = _backfill_optional_provenance(quiet=quiet)
 
+    # Tự động đăng ký/cập nhật cron job Thời khóa biểu (TKB) từ config
+    try:
+        from tools.tkb_tool import auto_register_tkb_cron
+        auto_register_tkb_cron()
+    except Exception as e:
+        logger.debug("Failed to auto register TKB cron in sync_skills: %s", e)
+
     return {
         "copied": copied,
         "updated": updated,
