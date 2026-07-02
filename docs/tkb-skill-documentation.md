@@ -58,3 +58,40 @@ tkb:
 - `/tkb tomorrow`: Báo trước lịch trình ngày mai.
 - `/tkb week`: Xem toàn bộ lịch học tập/làm việc trong tuần này.
 - `/tkb month`: Xem các sự kiện đặc biệt của tháng này (lịch lặp lại hàng tháng, hàng quý và sự kiện một lần, loại bỏ lịch tuần để tránh trùng lặp thông tin).
+
+---
+
+## 🛠️ 4. Nhật ký Sửa lỗi (Troubleshooting & Debugging)
+
+Trong quá trình triển khai thực tế trên môi trường Docker của Zalo Bot, một số lỗi cấu hình và kẹt cache đã được phát hiện và xử lý:
+
+### Lỗi 1: Zalo Bot không nhìn thấy tool `get_tkb`
+* **Triệu chứng:** Bot Zalo nhận diện được Skill TKB nhưng báo rằng không tìm thấy tool `get_tkb` trên hệ thống và tự đề xuất viết script python để thay thế.
+* **Nguyên nhân:** File `config.yaml` của môi trường Zalo giới hạn danh sách các công cụ được phép chạy (`platform_toolsets.zalo`). Do toolset `tkb` chưa được khai báo tại đây, Agent chạy trên Zalo bị ẩn đi tool `get_tkb`.
+* **Cách sửa:** Thêm `- tkb` vào cấu hình platform trong `config.yaml`:
+  ```yaml
+  platform_toolsets:
+    zalo:
+      - hermes-cli
+      - xsmb
+      - tkb # Cấp quyền cho Zalo chạy tool get_tkb
+  ```
+
+### Lỗi 2: Gateway cũ chạy ngầm giữ cache bộ nhớ
+* **Triệu chứng:** Dù đã sửa file Python trên host và chạy lệnh restart docker container, Zalo Bot vẫn hoạt động theo code cũ và báo thiếu tool.
+* **Nguyên nhân:** Docker container chạy hệ quản trị tiến trình `s6-supervisor`. Lệnh `docker restart` đôi khi không kill sạch được các background gateway instance cũ đang giữ khóa lock hoặc cache bộ nhớ (ví dụ: PID 157).
+* **Cách sửa:** Chạy trực tiếp lệnh khởi động lại tiến trình gateway bên trong container:
+  ```bash
+  docker exec hermes hermes gateway restart
+  ```
+
+### Lỗi 3: Kẹt lịch sử hội thoại cũ (Conversation Context)
+* **Triệu chứng:** Khi đổi code và phân quyền xong, bot vẫn báo thiếu tool.
+* **Nguyên nhân:** Lịch sử hội thoại trong cơ sở dữ liệu `state.db` của phiên chat hiện tại đang lưu giữ câu trả lời trước đó (rằng không có tool). Do đó, Agent tiếp tục suy luận dựa trên ngữ cảnh lỗi cũ.
+* **Cách sửa:**
+  1. Gửi lệnh `@Hermes /new` hoặc `@Hermes /clear` vào khung chat Zalo để làm mới phiên chat.
+  2. (Nếu cần cưỡng chế xóa từ database): Chạy lệnh Python kết nối SQLite để đóng các session Zalo đang hoạt động:
+     ```python
+     UPDATE sessions SET ended_at = ?, end_reason = 'manual_reset' WHERE source = 'zalo' AND ended_at IS NULL
+     ```
+
