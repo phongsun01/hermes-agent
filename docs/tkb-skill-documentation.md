@@ -89,9 +89,23 @@ Trong quá trình triển khai thực tế trên môi trường Docker của Zal
 * **Triệu chứng:** Khi đổi code và phân quyền xong, bot vẫn báo thiếu tool.
 * **Nguyên nhân:** Lịch sử hội thoại trong cơ sở dữ liệu `state.db` của phiên chat hiện tại đang lưu giữ câu trả lời trước đó (rằng không có tool). Do đó, Agent tiếp tục suy luận dựa trên ngữ cảnh lỗi cũ.
 * **Cách sửa:**
-  1. Gửi lệnh `@Hermes /new` hoặc `@Hermes /clear` vào khung chat Zalo để làm mới phiên chat.
-  2. (Nếu cần cưỡng chế xóa từ database): Chạy lệnh Python kết nối SQLite để đóng các session Zalo đang hoạt động:
-     ```python
-     UPDATE sessions SET ended_at = ?, end_reason = 'manual_reset' WHERE source = 'zalo' AND ended_at IS NULL
+      1. Gửi lệnh `@Hermes /new` hoặc `@Hermes /clear` vào khung chat Zalo để làm mới phiên chat.
+      2. (Nếu cần cưỡng chế xóa từ database): Chạy lệnh Python kết nối SQLite để đóng các session Zalo đang hoạt động:
+         ```python
+         UPDATE sessions SET ended_at = ?, end_reason = 'manual_reset' WHERE source = 'zalo' AND ended_at IS NULL
+         ```
+
+### Lỗi 4: Lịch Cron gửi vào nhóm Zalo bị gửi nhầm thành DM cá nhân (người lạ)
+* **Triệu chứng:** Khi chạy các tác vụ định kỳ (Cron jobs) gửi báo cáo thời khóa biểu vào nhóm chat (ví dụ nhóm "Bi Bống House" - ID `3339712927031818889`), tin nhắn không gửi vào nhóm mà lại gửi riêng cho tài khoản cá nhân, hoặc hiển thị người lạ tên `" "`.
+* **Nguyên nhân:**
+  1. Do Zalo thread ID không tự mã hóa phân loại (user vs group). Adapter Zalo cũ chỉ ghi nhớ loại hội thoại (`user` hoặc `group`) dựa trên tin nhắn nhận đến. Tuy nhiên, tác vụ Cron là gửi chủ động (outbound) nên không có tin nhắn nhận đến trước đó, dẫn đến việc adapter tự động fallback về `user`.
+  2. Zalo personal API (zca-js) yêu cầu `threadId` phải là số nguyên gốc (raw number), không chấp nhận prefix có định dạng chuỗi lạ như `group:3339712927031818889`.
+* **Cách sửa:**
+  1. Thêm hàm `_clean_target(chat_id)` trong file adapter [adapter.py](file:///C:/Users/Desktop/.hermes/plugins/zalo/adapter.py) để tự động tách prefix dạng `group:` hoặc `user:`, lấy ra ID số nguyên gốc để truyền cho API.
+  2. Thêm hàm `_populate_group_types()` chạy ngầm lúc kết nối (`connect()`), thực hiện gọi API `/groups` từ bridge để nạp trước toàn bộ ID của các nhóm vào bộ nhớ cache loại hội thoại `self._thread_types`.
+  3. Khởi động lại gateway để áp dụng code mới:
+     ```bash
+     docker exec hermes hermes gateway restart
      ```
+
 
