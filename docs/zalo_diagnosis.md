@@ -124,6 +124,24 @@ if (!listener.retryCount["1006"]) {
 - Bỏ các wrapper lệnh như `docker exec hermes ...` vì bản thân Agent Zalo đã nằm TRONG container `hermes` rồi.
 - *Lưu ý: Nếu thay đổi, thêm bớt Skill mới (`SKILL.md`), cần restart Gateway container (`docker restart hermes`) để Gateway load lại danh sách Slash Command Registry.*
 
+### 27. Định tuyến tin nhắn Cron nhóm Zalo bị gửi nhầm thành DM cá nhân (2026-07-03)
+
+**Vấn đề:** 
+Khi chạy các tác vụ định kỳ (Cron jobs) để gửi thông báo tự động vào nhóm chat Zalo (ví dụ nhóm có ID `3339712927031818889`), tin nhắn không được gửi vào nhóm mà lại gửi nhầm thành tin nhắn riêng tư (DM) cho sếp Lala Tran hoặc hiển thị người lạ tên `" "`.
+
+**Root cause:**
+1. **Mất thông tin phân loại hội thoại (Thread Type Loss)**: ID của user và group trên Zalo personal API (zca-js) đều là các dãy số có độ dài tương đương nhau. Zalo adapter chỉ tự động ghi nhận và lưu lại loại hội thoại (`user` hoặc `group`) dựa trên tin nhắn nhận đến. Tuy nhiên, tin nhắn Cron là tin nhắn chủ động gửi đi từ hệ thống (outbound), không có tin nhắn nhận đến từ trước để ghi nhận, do đó adapter không tìm thấy loại hội thoại trong cache và tự động fallback về nhắn tin cá nhân (`user`).
+2. **Yêu cầu ID số nguyên gốc (Raw IDs)**: Zalo bridge mong muốn nhận `threadId` dạng số nguyên thuần túy, không chấp nhận các prefix chuỗi lạ như `group:3339712927031818889`.
+
+**Giải pháp:**
+1. **Dọn dẹp prefix gửi đi**: Bổ sung hàm `_clean_target(chat_id)` vào file adapter [adapter.py](file:///C:/Users/Desktop/.hermes/plugins/zalo/adapter.py) để tự động tách và trích xuất thuộc tính loại hội thoại khi phát hiện prefix `group:` hoặc `user:`, sau đó trả về ID số nguyên gốc gửi cho Zalo API.
+2. **Nạp trước danh sách nhóm (Auto-populate Groups)**: Thêm phương thức `_populate_group_types()` chạy ngầm ngay khi kết nối (`connect()`) để fetch danh sách toàn bộ các nhóm từ Zalo bridge (`GET /groups`) và lưu sẵn ID của chúng vào cache `self._thread_types` dưới thuộc tính `group`.
+3. **Cập nhật các phương thức gửi**: Áp dụng cơ chế dọn dẹp và phân giải ID này vào toàn bộ các phương thức gửi tin nhắn chủ động: `send`, `send_typing`, `send_image_file`, `send_document`, `send_voice`.
+4. **Khởi động lại Gateway**:
+   ```bash
+   docker exec hermes hermes gateway restart
+   ```
+
 ---
 
 ## 🔧 Các sửa đổi đã áp dụng (2026-06-12 v3 - Stability Round)
