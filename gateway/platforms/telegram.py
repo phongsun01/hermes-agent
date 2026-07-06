@@ -3540,6 +3540,209 @@ class TelegramAdapter(BasePlatformAdapter):
                     )
             return
 
+        # --- Cron control callbacks (hx:cron:list | hx:cron:refresh | hx:cron:run:<job_id>) ---
+        if data.startswith("hx:cron:"):
+            caller_id = str(getattr(query.from_user, "id", ""))
+            if not self._is_callback_user_authorized(
+                caller_id,
+                chat_id=query_chat_id,
+                chat_type=str(query_chat_type) if query_chat_type is not None else None,
+                thread_id=str(query_thread_id) if query_thread_id is not None else None,
+                user_name=query_user_name,
+            ):
+                await query.answer(text="⛔ Không có quyền")
+                return
+
+            try:
+                from cron.jobs import list_jobs, trigger_job
+
+                if data == "hx:cron:list" or data == "hx:cron:refresh":
+                    await query.answer(text="Đang tải...")
+                    jobs = list_jobs(include_disabled=False)
+
+                    if not jobs:
+                        text = "## Cron jobs\n\nKhông có job nào đang chạy."
+                    else:
+                        lines = ["## Cron jobs\n"]
+                        for i, job in enumerate(jobs[:10], 1):  # Limit to 10 to avoid message too long
+                            name = job.get("name", "Unnamed")
+                            schedule = job.get("schedule_display", "?")
+                            enabled = "✅" if job.get("enabled", True) else "❌"
+                            next_run = job.get("next_run_at", "?")
+                            if next_run and next_run != "?":
+                                try:
+                                    from datetime import datetime
+                                    dt = datetime.fromisoformat(next_run.replace("Z", "+00:00"))
+                                    next_run = dt.strftime("%Y-%m-%d %H:%M")
+                                except Exception:
+                                    pass
+                            last_status = job.get("last_status", "?")
+
+                            lines.append(f"{i}) {name}")
+                            lines.append(f"- schedule: {schedule}")
+                            lines.append(f"- enabled: {enabled}")
+                            lines.append(f"- next: {next_run}")
+                            lines.append(f"- last: {last_status}\n")
+
+                        if len(jobs) > 10:
+                            lines.append(f"... và {len(jobs) - 10} job khác")
+
+                        text = "\n".join(lines)
+
+                    # Build keyboard with refresh and back buttons
+                    keyboard = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔄 Refresh", callback_data="hx:cron:refresh")],
+                        [InlineKeyboardButton("🔙 Back", callback_data="hx:cron:back")],
+                    ])
+
+                    try:
+                        await query.edit_message_text(
+                            text=self.format_message(text),
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                            reply_markup=keyboard,
+                        )
+                    except Exception as e:
+                        logger.warning("Failed to edit cron list message: %s", e)
+                        await query.answer(text="Lỗi cập nhật message")
+
+                elif data.startswith("hx:cron:run:"):
+                    job_id = data.split(":", 3)[-1]
+                    await query.answer(text="Đang trigger job...")
+
+                    result = trigger_job(job_id)
+                    if result:
+                        await query.answer(text=f"✅ Đã trigger job {job_id}")
+                        try:
+                            await query.edit_message_text(
+                                text=self.format_message(f"✅ Job `{job_id}` đã được trigger"),
+                                parse_mode=ParseMode.MARKDOWN_V2,
+                                reply_markup=None,
+                            )
+                        except Exception:
+                            pass
+                    else:
+                        await query.answer(text=f"❌ Không tìm thấy job {job_id}")
+
+                elif data == "hx:cron:back":
+                    await query.answer(text="Quay về menu")
+
+                    jobs = list_jobs(include_disabled=False)
+                    if not jobs:
+                        response_text = "## Cron Controls\n\nKhông có job nào đang chạy."
+                    else:
+                        response_text = f"## Cron Controls\n\nCó {len(jobs)} job đang chạy.\nBấm nút bên dưới để xem chi tiết."
+
+                    keyboard = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("📋 List cron", callback_data="hx:cron:list")],
+                        [InlineKeyboardButton("🔄 Refresh", callback_data="hx:cron:refresh")],
+                    ])
+
+                    try:
+                        await query.edit_message_text(
+                            text=self.format_message(response_text),
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                            reply_markup=keyboard,
+                        )
+                    except Exception as e:
+                        logger.warning("Failed to edit back to menu: %s", e)
+
+                else:
+                    await query.answer(text="Nút không hợp lệ")
+
+            except Exception as exc:
+                logger.error("[%s] cron callback failed: %s", self.name, exc, exc_info=True)
+                await query.answer(text="❌ Lỗi xử lý")
+            return
+
+        # --- MSC skill callbacks (v1|msc|...) ---
+        if data.startswith("v1|msc|"):
+            caller_id = str(getattr(query.from_user, "id", ""))
+            if not self._is_callback_user_authorized(
+                caller_id,
+                chat_id=query_chat_id,
+                chat_type=str(query_chat_type) if query_chat_type is not None else None,
+                thread_id=str(query_thread_id) if query_thread_id is not None else None,
+                user_name=query_user_name,
+            ):
+                await query.answer(text="⛔ Không có quyền")
+                return
+
+            try:
+                import subprocess
+                from pathlib import Path
+                import sys
+
+                # Route callback to MSC router
+                msc_router = Path(__file__).parent.parent.parent / "skills/productivity/msc/lib/msc_mvp_router.py"
+
+                # Pass callback data directly (router will parse v1|msc|... format)
+                result = subprocess.run(
+                    [sys.executable, str(msc_router), data],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+
+                if result.returncode != 0:
+                    logger.error("[Telegram] MSC router failed: %s", result.stderr)
+                    await query.answer(text="❌ Lỗi xử lý MSC")
+                    return
+
+                # Parse router JSON output
+                response = json.loads(result.stdout)
+
+                # Extract text and buttons from response
+                if response.get("status") == "ok":
+                    result_data = response.get("result", {})
+
+                    # Check if result has menu structure (text + buttons)
+                    if "text" in result_data and "buttons" in result_data:
+                        text = result_data.get("text", "No response")
+                        buttons = result_data.get("buttons", [])
+                    else:
+                        # Non-menu response (e.g., status check) - format as text
+                        command = response.get("command", "")
+                        if command == "msc_status":
+                            login_ok = result_data.get("login_ok", False)
+                            total = result_data.get("total", 0)
+                            text = f"🔐 MSC Token Status\n\n✅ Login: {'OK' if login_ok else 'Failed'}\n📊 TBMT today: {total}"
+                        elif command == "fl":
+                            # Watchlist command response
+                            reply_text = result_data.get("reply_text", "")
+                            text = reply_text if reply_text else json.dumps(result_data, ensure_ascii=False, indent=2)
+                        else:
+                            # Generic JSON response
+                            text = json.dumps(result_data, ensure_ascii=False, indent=2)
+                        buttons = []
+                else:
+                    # Handle error response
+                    error = response.get("error", {})
+                    text = error.get("message", "Lỗi xử lý")
+                    buttons = []
+
+                # Build inline keyboard
+                keyboard = None
+                if buttons:
+                    keyboard = InlineKeyboardMarkup(buttons)
+
+                await query.answer(text="✅")
+                await query.edit_message_text(
+                    text=self.format_message(text),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                )
+
+            except subprocess.TimeoutExpired:
+                logger.error("[Telegram] MSC router timeout")
+                await query.answer(text="⏱️ Timeout")
+            except json.JSONDecodeError as e:
+                logger.error("[Telegram] MSC router invalid JSON: %s", e)
+                await query.answer(text="❌ Lỗi parse JSON")
+            except Exception as exc:
+                logger.error("[%s] MSC callback failed: %s", self.name, exc, exc_info=True)
+                await query.answer(text="❌ Lỗi xử lý MSC")
+            return
+
         # --- Update prompt callbacks ---
         if not data.startswith("update_prompt:"):
             return
@@ -5210,6 +5413,79 @@ class TelegramAdapter(BasePlatformAdapter):
         if not self._should_process_message(msg, is_command=True):
             return
         await self._ensure_forum_commands(msg)
+
+        text = msg.text.strip()
+        if text.startswith("/cronmenu"):
+            logger.info("[Telegram] Intercepting /cronmenu command")
+            try:
+                from cron.jobs import list_jobs
+
+                jobs = list_jobs(include_disabled=False)
+                logger.info("[Telegram] Found %d jobs", len(jobs))
+
+                if not jobs:
+                    response_text = "## Cron Controls\n\nKhông có job nào đang chạy."
+                else:
+                    response_text = f"## Cron Controls\n\nCó {len(jobs)} job đang chạy.\nBấm nút bên dưới để xem chi tiết."
+
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📋 List cron", callback_data="hx:cron:list")],
+                    [InlineKeyboardButton("🔄 Refresh", callback_data="hx:cron:refresh")],
+                ])
+
+                logger.info("[Telegram] Sending cronmenu response")
+                await msg.reply_text(
+                    text=self.format_message(response_text),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                )
+                logger.info("[Telegram] /cronmenu response sent successfully")
+                return
+            except Exception as exc:
+                logger.error("[%s] /cronmenu command failed: %s", self.name, exc, exc_info=True)
+                await msg.reply_text("❌ Lỗi khi tải cron menu")
+                return
+
+        # Intercept /mscmenu command for MSC skill
+        if text.startswith("/mscmenu"):
+            logger.info("[Telegram] Intercepting /mscmenu command for MSC skill")
+            try:
+                import subprocess
+                from pathlib import Path
+                import sys
+
+                msc_router = Path(__file__).parent.parent.parent / "skills/productivity/msc/lib/msc_mvp_router.py"
+                result = subprocess.run(
+                    [sys.executable, str(msc_router), "/menu"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+
+                if result.returncode != 0:
+                    logger.error("[Telegram] MSC router failed: %s", result.stderr)
+                    await msg.reply_text("❌ Lỗi khi tải MSC menu")
+                    return
+
+                response = json.loads(result.stdout)
+                response_text = response.get("result", {}).get("text", "No menu")
+                buttons = response.get("result", {}).get("buttons", [])
+
+                keyboard = None
+                if buttons:
+                    keyboard = InlineKeyboardMarkup(buttons)
+
+                await msg.reply_text(
+                    text=self.format_message(response_text),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                )
+                logger.info("[Telegram] /mscmenu response sent successfully")
+                return
+            except Exception as exc:
+                logger.error("[%s] /mscmenu command failed: %s", self.name, exc, exc_info=True)
+                await msg.reply_text("❌ Lỗi khi tải MSC menu")
+                return
 
         event = self._build_message_event(msg, MessageType.COMMAND, update_id=update.update_id)
         event.text = self._clean_bot_trigger_text(event.text)

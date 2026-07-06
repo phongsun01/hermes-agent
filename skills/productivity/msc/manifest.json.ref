@@ -1,0 +1,10 @@
+{
+  "name": "msc-skill",
+  "generated_at": "20260321-202439",
+  "risk_level": "medium",
+  "tools_allowed": [
+    "exec",
+    "read"
+  ],
+  "source_spec": "/Users/xitrum/.openclaw/workspace/tools/openclaw-skill-generator/specs/pilot_msc_skill.json"
+}
