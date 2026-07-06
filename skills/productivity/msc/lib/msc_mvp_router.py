@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+os.environ['PYTHONUTF8'] = '1'
 import re
 import shlex
 import subprocess
@@ -16,6 +17,23 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+# Patch subprocess.run to replace 'python3' with sys.executable and safely handle text decoding for cross-platform compatibility
+_orig_run = subprocess.run
+def _patched_run(args, *args_pos, **kwargs):
+    if isinstance(args, list) and args and args[0] == 'python3':
+        args = [sys.executable] + args[1:]
+    text_mode = kwargs.pop('text', None) or kwargs.pop('universal_newlines', None) or ('encoding' in kwargs)
+    kwargs.pop('encoding', None)
+    if text_mode:
+        res = _orig_run(args, *args_pos, **kwargs)
+        if isinstance(res.stdout, bytes):
+            res.stdout = res.stdout.decode('utf-8', errors='replace')
+        if isinstance(res.stderr, bytes):
+            res.stderr = res.stderr.decode('utf-8', errors='replace')
+        return res
+    return _orig_run(args, *args_pos, **kwargs)
+subprocess.run = _patched_run
 
 SKILL_ROOT = Path(__file__).parent.parent  # msc/lib/msc_mvp_router.py -> msc/
 if str(SKILL_ROOT / 'lib') not in sys.path:
@@ -94,7 +112,7 @@ def _run_json(cmd: list[str]) -> dict:
 
 
 def _msc_token() -> str:
-    return _get_env('BOT2_MSC_TOKEN', 'MSC_TOKEN', 'MUASAMCONG_TOKEN', default='')
+    return _get_env('BOT2_MSC_TOKEN', 'MSC_TOKEN', 'MUASAMCONG_TOKEN', 'MSC_SESSION_TOKEN', default='')
 
 
 def _msc_cookie() -> str:
