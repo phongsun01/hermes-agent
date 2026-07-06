@@ -5384,39 +5384,19 @@ class TelegramAdapter(BasePlatformAdapter):
         """
         return getattr(update, "effective_message", None) or getattr(update, "message", None)
 
-    async def _handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle incoming text messages.
-
-        Telegram clients split long messages into multiple updates.  Buffer
-        rapid successive text messages from the same user/chat and aggregate
-        them into a single MessageEvent before dispatching.
+    async def _intercept_special_commands(self, msg: Any, text: str) -> bool:
+        """Intercept special commands like /cronmenu and /mscmenu (with or without slash).
+        
+        Returns:
+            True if the command was intercepted, False otherwise.
         """
-        msg = self._effective_update_message(update)
-        if not msg or not msg.text:
-            return
-        if not self._should_process_message(msg):
-            if self._should_observe_unmentioned_group_message(msg):
-                self._observe_unmentioned_group_message(msg, MessageType.TEXT, update_id=update.update_id)
-            return
-        await self._ensure_forum_commands(update.message)
-
-        event = self._build_message_event(msg, MessageType.TEXT, update_id=update.update_id)
-        event.text = self._clean_bot_trigger_text(event.text)
-        event = self._apply_telegram_group_observe_attribution(event)
-        self._enqueue_text_event(event)
-
-    async def _handle_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle incoming command messages."""
-        msg = self._effective_update_message(update)
-        if not msg or not msg.text:
-            return
-        if not self._should_process_message(msg, is_command=True):
-            return
-        await self._ensure_forum_commands(msg)
-
-        text = msg.text.strip()
-        if text.startswith("/cronmenu"):
-            logger.info("[Telegram] Intercepting /cronmenu command")
+        if not text:
+            return False
+        cleaned_text = text.strip().lower()
+        
+        # Check /cronmenu / cronmenu
+        if cleaned_text in ("cronmenu", "/cronmenu") or cleaned_text.startswith(("cronmenu ", "/cronmenu ")):
+            logger.info("[Telegram] Intercepting cronmenu command: %s", text)
             try:
                 from cron.jobs import list_jobs
 
@@ -5439,16 +5419,16 @@ class TelegramAdapter(BasePlatformAdapter):
                     parse_mode=ParseMode.MARKDOWN_V2,
                     reply_markup=keyboard,
                 )
-                logger.info("[Telegram] /cronmenu response sent successfully")
-                return
+                logger.info("[Telegram] cronmenu response sent successfully")
+                return True
             except Exception as exc:
-                logger.error("[%s] /cronmenu command failed: %s", self.name, exc, exc_info=True)
+                logger.error("[%s] cronmenu command failed: %s", self.name, exc, exc_info=True)
                 await msg.reply_text("❌ Lỗi khi tải cron menu")
-                return
+                return True
 
-        # Intercept /mscmenu command for MSC skill
-        if text.startswith("/mscmenu"):
-            logger.info("[Telegram] Intercepting /mscmenu command for MSC skill")
+        # Check /mscmenu / mscmenu
+        if cleaned_text in ("mscmenu", "/mscmenu") or cleaned_text.startswith(("mscmenu ", "/mscmenu ")):
+            logger.info("[Telegram] Intercepting mscmenu command: %s", text)
             try:
                 import subprocess
                 from pathlib import Path
@@ -5465,7 +5445,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 if result.returncode != 0:
                     logger.error("[Telegram] MSC router failed: %s", result.stderr)
                     await msg.reply_text("❌ Lỗi khi tải MSC menu")
-                    return
+                    return True
 
                 response = json.loads(result.stdout)
                 response_text = response.get("result", {}).get("text", "No menu")
@@ -5480,12 +5460,52 @@ class TelegramAdapter(BasePlatformAdapter):
                     parse_mode=ParseMode.MARKDOWN_V2,
                     reply_markup=keyboard,
                 )
-                logger.info("[Telegram] /mscmenu response sent successfully")
-                return
+                logger.info("[Telegram] mscmenu response sent successfully")
+                return True
             except Exception as exc:
-                logger.error("[%s] /mscmenu command failed: %s", self.name, exc, exc_info=True)
+                logger.error("[%s] mscmenu command failed: %s", self.name, exc, exc_info=True)
                 await msg.reply_text("❌ Lỗi khi tải MSC menu")
-                return
+                return True
+
+        return False
+
+    async def _handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle incoming text messages.
+
+        Telegram clients split long messages into multiple updates.  Buffer
+        rapid successive text messages from the same user/chat and aggregate
+        them into a single MessageEvent before dispatching.
+        """
+        msg = self._effective_update_message(update)
+        if not msg or not msg.text:
+            return
+        if not self._should_process_message(msg):
+            if self._should_observe_unmentioned_group_message(msg):
+                self._observe_unmentioned_group_message(msg, MessageType.TEXT, update_id=update.update_id)
+            return
+        await self._ensure_forum_commands(update.message)
+
+        # Intercept special commands (with or without slash)
+        if await self._intercept_special_commands(msg, msg.text):
+            return
+
+        event = self._build_message_event(msg, MessageType.TEXT, update_id=update.update_id)
+        event.text = self._clean_bot_trigger_text(event.text)
+        event = self._apply_telegram_group_observe_attribution(event)
+        self._enqueue_text_event(event)
+
+    async def _handle_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle incoming command messages."""
+        msg = self._effective_update_message(update)
+        if not msg or not msg.text:
+            return
+        if not self._should_process_message(msg, is_command=True):
+            return
+        await self._ensure_forum_commands(msg)
+
+        # Intercept special commands (with or without slash)
+        if await self._intercept_special_commands(msg, msg.text):
+            return
 
         event = self._build_message_event(msg, MessageType.COMMAND, update_id=update.update_id)
         event.text = self._clean_bot_trigger_text(event.text)
