@@ -249,6 +249,80 @@ def build_message(vn_news):
 
     return "\n".join(lines).strip() + "\n"
 
+def get_wikipedia_events():
+    now_vn = datetime.now(TZ_VN)
+    day = now_vn.day
+    month = now_vn.month
+    url = f"https://vi.wikipedia.org/wiki/{day}_th%C3%A1ng_{month}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            html_content = r.read().decode('utf-8')
+            
+        idx = html_content.find('id="Sự_kiện"')
+        if idx != -1:
+            next_html = html_content[idx:idx+15000]
+            ul_m = re.search(r'<ul[^>]*>(.*?)</ul>', next_html, re.DOTALL)
+            if ul_m:
+                items = re.findall(r'<li[^>]*>(.*?)</li>', ul_m.group(1), re.DOTALL)
+                events = []
+                for item in items:
+                    text = clean_text(item)
+                    if text:
+                        events.append(text)
+                return events
+    except Exception as e:
+        pass
+    return []
+
+
+def get_today_report():
+    comm = get_commemorative_today()
+    wiki_events = get_wikipedia_events()
+    
+    lines = [f"📅 SỰ KIỆN LỊCH SỬ & KỶ NIỆM HÔM NAY ({datetime.now(TZ_VN).strftime('%d/%m')})"]
+    lines.append("══════════════════════════════════════\n")
+    
+    if comm:
+        lines.append(f"🎉 **Ngày kỷ niệm:** {comm}\n")
+        
+    if wiki_events:
+        vn_events = []
+        world_events = []
+        
+        vn_keywords = [
+            "việt nam", "đại việt", "trần", "lê", "nguyễn", "hồ chí minh", 
+            "võ nguyên giáp", "quang trung", "gia long", "minh mạng",
+            "hà nội", "sài gòn", "đà nẵng", "quảng ninh", "đại cồ việt", "gia định",
+            "bình định", "huế", "thăng long", "tây sơn", "vĩnh long", "mỹ tho", "cần thơ"
+        ]
+
+        
+        for ev in wiki_events:
+            ev_lower = ev.lower()
+            if any(k in ev_lower for k in vn_keywords):
+                vn_events.append(ev)
+            else:
+                world_events.append(ev)
+                
+        lines.append("🇻🇳 **Sự kiện Việt Nam:**")
+        if vn_events:
+            for ev in vn_events[:5]:
+                lines.append(f"   • {ev}")
+        else:
+            lines.append("   • Không có sự kiện nổi bật ghi nhận.")
+            
+        lines.append("\n🌍 **Sự kiện Thế giới:**")
+        if world_events:
+            for ev in world_events[:5]:
+                lines.append(f"   • {ev}")
+        else:
+            lines.append("   • Không có sự kiện nổi bật ghi nhận.")
+    else:
+        lines.append("⚠️ Không tải được danh sách sự kiện từ Wikipedia.")
+        
+    return "\n".join(lines)
+
 def main():
     if sys.platform == "win32":
         try:
@@ -258,16 +332,41 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--hours", type=int, default=24)
     ap.add_argument("--top", type=int, default=3)
+    ap.add_argument("--mode", choices=["news", "today"], default="news")
+    ap.add_argument("--topic", default="tin tức thông thường")
     args = ap.parse_args()
 
-    vn_all = pick_recent_multi(VN_FEEDS, hours=args.hours, top=args.top)
+    if args.mode == "today":
+        print(get_today_report())
+        return
+
+    # Topic mapping for RSS feeds
+    topic_lower = args.topic.lower().strip()
+    feeds = VN_FEEDS
+    if "thể thao" in topic_lower:
+        feeds = ["https://vnexpress.net/rss/the-thao.rss", "https://tuoitre.vn/rss/the-thao.rss"]
+    elif "kinh tế" in topic_lower or "kinh doanh" in topic_lower or "tài chính" in topic_lower:
+        feeds = ["https://vnexpress.net/rss/kinh-doanh.rss", "https://tuoitre.vn/rss/kinh-doanh.rss"]
+    elif "thế giới" in topic_lower:
+        feeds = ["https://vnexpress.net/rss/the-gioi.rss", "https://tuoitre.vn/rss/the-gioi.rss"]
+    elif "pháp luật" in topic_lower:
+        feeds = ["https://vnexpress.net/rss/phap-luat.rss", "https://tuoitre.vn/rss/phap-luat.rss"]
+    elif "giải trí" in topic_lower or "nghệ thuật" in topic_lower:
+        feeds = ["https://vnexpress.net/rss/giai-tri.rss", "https://tuoitre.vn/rss/giai-tri.rss"]
+    elif "tin tức thông thường" not in topic_lower:
+        # Search via Google News if user typed a custom topic
+        query = urllib.parse.quote(args.topic)
+        feeds = [f"https://news.google.com/rss/search?q={query}&hl=vi&gl=VN&ceid=VN:vi"]
+
+    vn_all = pick_recent_multi(feeds, hours=args.hours, top=args.top)
+    if not vn_all and feeds != VN_FEEDS:
+        vn_all = pick_recent_multi(VN_FEEDS, hours=args.hours, top=args.top)
     if not vn_all:
         vn_all = pick_recent_multi(VN_FALLBACK_FEEDS, hours=args.hours, top=args.top)
 
     message = build_message(vn_all)
-    
-    # Print output directly so scheduler can deliver it
     print(message)
 
 if __name__ == "__main__":
     main()
+

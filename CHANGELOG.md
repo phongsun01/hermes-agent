@@ -2,7 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-07
+
+### Added
+- **News Skill**: Implemented the unified `news` skill under `skills/news/` supporting `/news` and `/newsmenu` slash commands.
+- **Tide Forecast Support**: Added `/news trieucuong` command with automated tide-forecast.com scraper for coastal provinces.
+- **Wikipedia Historical Events Scraper**: Added `/news today` command scraping Vietnamese and World historical anniversaries dynamically from Wikipedia.
+
+### Changed
+- **Briefing Scripts Consolidation**: Grouped and cleaned up custom briefing scripts (`weather_quangninh.py`, `lunar_convert.py`, `gia_hang_hoa_sang.py`, `zalo_morning_brief.py`) into the unified `scripts/news/` directory.
+- **CLI & Telegram Gateway Interception**: Registered `/news` and `/newsmenu` in `hermes_cli/commands.py`, `cli.py`, and `gateway/platforms/telegram.py` with inline keyboard buttons.
+- **Windows Emoji Encoding Fix**: Reconfigured stdout to UTF-8 on Windows for `gia_hang_hoa_sang.py` and `weather_quangninh.py`.
+
 ## [Unreleased] - 2026-07-06
+
 
 ### Added
 - **Zalo Morning Briefing Script**: Created [zalo_morning_brief.py](file:///D:/Antigravity/Hermes/scripts/zalo/zalo_morning_brief.py) to fetch Vietnamese lunar date, local commemorative holidays, domestic RSS feeds, and daily quiz.

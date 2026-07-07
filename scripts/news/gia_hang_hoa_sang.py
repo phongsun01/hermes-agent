@@ -66,7 +66,7 @@ def get_ty_gia():
         if usd_m:
             buy, transfer, sell = usd_m.group(1), usd_m.group(2), usd_m.group(3)
             return (f"🏦 **Tỷ giá USD** (Vietcombank, {dt_str}):\n"
-                    f"  • Mua: {buy} | Chuyển khoản: {transfer} | Bán: {sell} (VND)")
+                     f"  • Mua: {buy} | Chuyển khoản: {transfer} | Bán: {sell} (VND)")
         return "🏦 **Tỷ giá USD**: Không parse được dữ liệu Vietcombank"
     except Exception as e:
         try:
@@ -163,14 +163,34 @@ def get_gia_xang():
 # ── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except Exception:
+            pass
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--section", choices=["all", "vang", "xang", "tygia"], default="all")
+    args = parser.parse_args()
+
     now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-    print(f"📊 **Tổng hợp giá sáng** ({now})\n")
-    print(get_gia_xang())
-    print()
-    print(get_gia_vang())
-    print()
-    print(get_ty_gia())
+    
+    if args.section == "all":
+        print(f"📊 **Tổng hợp giá sáng** ({now})\n")
+        print(get_gia_xang())
+        print()
+        print(get_gia_vang())
+        print()
+        print(get_ty_gia())
+    elif args.section == "xang":
+        print(get_gia_xang())
+    elif args.section == "vang":
+        print(get_gia_vang())
+    elif args.section == "tygia":
+        print(get_ty_gia())
 
 
 if __name__ == "__main__":
+    import argparse
     main()
+

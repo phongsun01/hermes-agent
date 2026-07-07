@@ -3743,6 +3743,424 @@ class TelegramAdapter(BasePlatformAdapter):
                 await query.answer(text="❌ Lỗi xử lý MSC")
             return
 
+        # --- XS callbacks (hx:xs:...) ---
+        if data.startswith("hx:xs:"):
+            caller_id = str(getattr(query.from_user, "id", ""))
+            if not self._is_callback_user_authorized(
+                caller_id,
+                chat_id=query_chat_id,
+                chat_type=str(query_chat_type) if query_chat_type is not None else None,
+                thread_id=str(query_thread_id) if query_thread_id is not None else None,
+                user_name=query_user_name,
+            ):
+                await query.answer(text="⛔ Không có quyền")
+                return
+
+            await query.answer(text="Đang xử lý...")
+            action = data.split(":", 2)[-1]
+            repo_root = Path(__file__).parent.parent.parent
+            import subprocess
+            import sys
+            import json
+            from datetime import datetime, timedelta
+
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎫 Kết quả hôm nay", callback_data="hx:xs:homnay")],
+                [InlineKeyboardButton("📅 Kết quả hôm qua", callback_data="hx:xs:homqua")],
+                [InlineKeyboardButton("📊 Thống kê lô tô", callback_data="hx:xs:lo:30")],
+                [InlineKeyboardButton("🔮 Soi cầu Pascal & MC", callback_data="hx:xs:soilo:30")],
+                [InlineKeyboardButton("🔄 Refresh", callback_data="hx:xs:refresh")]
+            ])
+
+            if action == "refresh":
+                text = "🎰 **Xổ Số Miền Bắc (XSMB)**\nChọn chức năng bên dưới để xem hoặc phân tích kết quả xổ số:"
+                await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+                return
+
+            if action in ("homnay", "homqua"):
+                if action == "homnay":
+                    target_date = datetime.now().strftime("%d-%m-%Y")
+                else:
+                    target_date = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")
+                
+                try:
+                    result = subprocess.run(
+                        [sys.executable, "-c", f"import sys; sys.path.insert(0, '{repo_root}'); from tools.xsmb_tool import get_xsmb_tool; print(get_xsmb_tool(date='{target_date}'))"],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    res_data = json.loads(result.stdout)
+                    if res_data.get("success"):
+                        res = res_data.get("results", {})
+                        lines = [
+                            f"🎰 **KQXSMB - {target_date}**\n",
+                            f"🏆 **Đặc biệt**: {res.get('GDB', res.get('gdb', '?????'))}",
+                            f"🥇 **Giải Nhất**: {res.get('G1', res.get('g1', '?????'))}",
+                            f"🥈 **Giải Nhì**: {res.get('G2', res.get('g2', '?????'))}",
+                            f"🥉 **Giải Ba**: {res.get('G3', res.get('g3', '?????'))}",
+                            f"🏅 **Giải Tư**: {res.get('G4', res.get('g4', '?????'))}",
+                            f"🏅 **Giải Năm**: {res.get('G5', res.get('g5', '?????'))}",
+                            f"🏅 **Giải Sáu**: {res.get('G6', res.get('g6', '?????'))}",
+                            f"🏅 **Giải Bảy**: {res.get('G7', res.get('g7', '?????'))}",
+                        ]
+                        all_nums = []
+                        for key in ["GDB", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "gdb", "g1", "g2", "g3", "g4", "g5", "g6", "g7"]:
+                            val = res.get(key, "")
+                            if val:
+                                parts = val.split()
+                                for p in parts:
+                                    if len(p) >= 2:
+                                        all_nums.append(int(p[-2:]))
+                        if all_nums:
+                            unique_lotos = sorted(set(all_nums))
+                            loto_str = " - ".join(f"{n:02d}" for n in unique_lotos)
+                            lines.append(f"\n🎯 **Lô tô**: {loto_str}")
+                        text = "\n".join(lines)
+                    else:
+                        text = f"❌ Không tìm thấy kết quả ngày {target_date}."
+                except Exception as e:
+                    text = f"❌ Lỗi khi lấy kết quả: {e}"
+
+            elif action == "lo:30":
+                try:
+                    script = f"""
+import sys, json
+sys.path.insert(0, '{repo_root}')
+from tools.xsmb_tool import get_xsmb_tool
+data = json.loads(get_xsmb_tool(limit_days=30))
+if not data.get("success"):
+    print(json.dumps({{"success": False, "error": data.get("error")}}))
+    sys.exit(0)
+results = data.get("results", [])
+counts = {{}}
+for r in results:
+    for key in ["GDB", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "gdb", "g1", "g2", "g3", "g4", "g5", "g6", "g7"]:
+        val = r.get(key, "")
+        if val:
+            for p in val.split():
+                if len(p) >= 2:
+                    loto = p[-2:]
+                    counts[loto] = counts.get(loto, 0) + 1
+sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+top_5 = sorted_counts[:5]
+least_5 = sorted_counts[-5:]
+print(json.dumps({{"success": True, "top_5": top_5, "least_5": least_5}}))
+"""
+                    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=30)
+                    res_data = json.loads(result.stdout)
+                    if res_data.get("success"):
+                        lines = ["📊 **Thống kê Lô tô 30 ngày qua**\n"]
+                        lines.append("🔥 **Về nhiều nhất (Top 5):**")
+                        for num, freq in res_data.get("top_5", []):
+                            lines.append(f"  • **{num}**: {freq} lần")
+                        lines.append("\n❄️ **Về ít nhất (Top 5):**")
+                        for num, freq in res_data.get("least_5", []):
+                            lines.append(f"  • **{num}**: {freq} lần")
+                        text = "\n".join(lines)
+                    else:
+                        text = f"❌ Không có dữ liệu thống kê: {res_data.get('error')}"
+                except Exception as e:
+                    text = f"❌ Lỗi thống kê: {e}"
+
+            elif action == "soilo:30":
+                try:
+                    result = subprocess.run(
+                        [sys.executable, "-c", f"import sys; sys.path.insert(0, '{repo_root}'); from tools.xsmb_tool import predict_xsmb_tool; print(predict_xsmb_tool(last_days=30))"],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    res_data = json.loads(result.stdout)
+                    if res_data.get("success"):
+                        lines = ["🔮 **Dự đoán Soi cầu XSMB (30 ngày mẫu)**\n"]
+                        lines.append(f"🧩 **Cầu Pascal gần nhất**: `{res_data.get('pascal_prediction')}`")
+                        lines.append("\n🎲 **Top 5 Monte Carlo:**")
+                        for item in res_data.get("top_monte_carlo", [])[:5]:
+                            lines.append(f"  • **{item.get('number')}**: {item.get('probability')}")
+                        text = "\n".join(lines)
+                    else:
+                        text = f"❌ Lỗi soi cầu: {res_data.get('error')}"
+                except Exception as e:
+                    text = f"❌ Lỗi dự đoán: {e}"
+
+            else:
+                text = "Không nhận diện được lệnh xổ số."
+
+            await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+            return
+
+        # --- CC callbacks (hx:cc:...) ---
+        if data.startswith("hx:cc:"):
+            caller_id = str(getattr(query.from_user, "id", ""))
+            if not self._is_callback_user_authorized(
+                caller_id,
+                chat_id=query_chat_id,
+                chat_type=str(query_chat_type) if query_chat_type is not None else None,
+                thread_id=str(query_thread_id) if query_thread_id is not None else None,
+                user_name=query_user_name,
+            ):
+                await query.answer(text="⛔ Không có quyền")
+                return
+
+            await query.answer(text="Đang xử lý...")
+            action = data.split(":", 2)[-1]
+            from hermes_constants import get_hermes_home
+            import subprocess
+            import sys
+            import json
+            from datetime import datetime
+
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📄 Danh sách văn bản mới", callback_data="hx:cc:list")],
+                [InlineKeyboardButton("📅 Văn bản hôm nay", callback_data="hx:cc:list_today")],
+                [InlineKeyboardButton("✅ Kết thúc toàn bộ", callback_data="hx:cc:end_all")],
+                [InlineKeyboardButton("❓ Trợ giúp", callback_data="hx:cc:help")],
+                [InlineKeyboardButton("🔄 Refresh", callback_data="hx:cc:refresh")]
+            ])
+
+            if action == "refresh":
+                text = "📁 **Quản lý Công văn Quảng Ninh**\nChọn chức năng xử lý công văn bên dưới:"
+                await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+                return
+
+            if action == "list":
+                try:
+                    script_path = get_hermes_home() / "scripts/congchuc/congvan_status.py"
+                    result = subprocess.run(
+                        [sys.executable, str(script_path), "list", "--status", "new"],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    text = result.stdout if result.returncode == 0 else "❌ Lỗi đọc danh sách công văn"
+                except Exception as e:
+                    text = f"❌ Lỗi: {e}"
+
+            elif action == "list_today":
+                try:
+                    state_file = get_hermes_home() / "cron/cong-van-den/vbden_state.json"
+                    if state_file.exists():
+                        with open(state_file, "r", encoding="utf-8") as f:
+                            state = json.load(f)
+                        docs = state.get("documents", {})
+                        today_str = datetime.now().strftime("%Y-%m-%d")
+                        today_docs = []
+                        for doc in docs.values():
+                            updated_at = doc.get("status_updated_at") or ""
+                            if today_str in updated_at:
+                                today_docs.append(doc)
+                        if not today_docs:
+                            text = "📅 Không có văn bản nào cập nhật hôm nay."
+                        else:
+                            lines = [f"📅 **Văn bản hôm nay ({len(today_docs)} VB):**"]
+                            for doc in today_docs:
+                                so_den = doc.get("so_den", "?")
+                                status = doc.get("status", "new")
+                                tac_gia = doc.get("tac_gia", "?")[:30]
+                                trich_yeu = doc.get("trich_yeu", "")[:60]
+                                lines.append(f"  • #{so_den} [{status}] {tac_gia}: {trich_yeu}")
+                            text = "\n".join(lines)
+                    else:
+                        text = "❌ Chưa có dữ liệu văn bản nào."
+                except Exception as e:
+                    text = f"❌ Lỗi: {e}"
+
+            elif action == "end_all":
+                try:
+                    state_file = get_hermes_home() / "cron/cong-van-den/vbden_state.json"
+                    new_vbs = []
+                    if state_file.exists():
+                        with open(state_file, "r", encoding="utf-8") as f:
+                            state = json.load(f)
+                        docs = state.get("documents", {})
+                        new_vbs = [doc.get("so_den") for doc in docs.values() if doc.get("status") == "new"]
+
+                    if not new_vbs:
+                        text = "✅ Không có văn bản nào ở trạng thái 'new' để kết thúc."
+                    else:
+                        text = f"⚠️ **Xác nhận kết thúc toàn bộ**\n\nCó {len(new_vbs)} văn bản chưa xử lý: {', '.join(new_vbs)}.\nBạn có chắc chắn muốn kết thúc tất cả?"
+                        confirm_keyboard = InlineKeyboardMarkup([
+                            [InlineKeyboardButton("⚠️ Xác nhận kết thúc tất cả", callback_data="hx:cc:end_all_confirm")],
+                            [InlineKeyboardButton("🔙 Hủy", callback_data="hx:cc:refresh")]
+                        ])
+                        await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=confirm_keyboard)
+                        return
+                except Exception as e:
+                    text = f"❌ Lỗi: {e}"
+
+            elif action == "end_all_confirm":
+                state_file = get_hermes_home() / "cron/cong-van-den/vbden_state.json"
+                new_vbs = []
+                if state_file.exists():
+                    try:
+                        with open(state_file, "r", encoding="utf-8") as f:
+                            state = json.load(f)
+                        docs = state.get("documents", {})
+                        new_vbs = [doc.get("so_den") for doc in docs.values() if doc.get("status") == "new"]
+                    except Exception:
+                        pass
+
+                if not new_vbs:
+                    text = "✅ Không có văn bản nào cần kết thúc."
+                else:
+                    await query.edit_message_text("⏳ Đang tiến hành kết thúc toàn bộ văn bản chưa xử lý trên cổng... (Mỗi văn bản khoảng 10-15 giây)")
+                    
+                    async def do_end_all(msg_to_edit, vbs_to_end):
+                        try:
+                            home = get_hermes_home()
+                            for so_den in vbs_to_end:
+                                subprocess.run([sys.executable, str(home / "scripts/congchuc/congchuc_action.py"), "kethuc", so_den], env=dict(os.environ, HERMES_HOME="/tmp"))
+                                subprocess.run([sys.executable, str(home / "scripts/congchuc/congvan_status.py"), "done", so_den])
+                            await msg_to_edit.edit_text("✅ Đã kết thúc toàn bộ văn bản chưa xử lý thành công!")
+                        except Exception as e:
+                            await msg_to_edit.edit_text(f"❌ Có lỗi xảy ra khi kết thúc văn bản: {e}")
+                    
+                    import asyncio
+                    asyncio.create_task(do_end_all(query.message, new_vbs))
+                    return
+
+            elif action == "help":
+                text = "❓ **Trợ giúp Công văn**\n- `list`: Xem danh sách VB mới.\n- `list_today`: Lọc VB cập nhật hôm nay.\n- `end_all`: Kết thúc toàn bộ VB mới.\n- Để chạy chi tiết từng văn bản, vui lòng dùng cú pháp chat thường (ví dụ: `/cc tomtat 12345` hoặc `/cc end 12345`)."
+
+            else:
+                text = "Không nhận diện được lệnh công văn."
+
+            await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+            return
+
+        # --- TKB callbacks (hx:tkb:...) ---
+        if data.startswith("hx:tkb:"):
+            caller_id = str(getattr(query.from_user, "id", ""))
+            if not self._is_callback_user_authorized(
+                caller_id,
+                chat_id=query_chat_id,
+                chat_type=str(query_chat_type) if query_chat_type is not None else None,
+                thread_id=str(query_thread_id) if query_thread_id is not None else None,
+                user_name=query_user_name,
+            ):
+                await query.answer(text="⛔ Không có quyền")
+                return
+
+            await query.answer(text="Đang xử lý...")
+            action = data.split(":", 2)[-1]
+            repo_root = Path(__file__).parent.parent.parent
+            import subprocess
+            import sys
+            import json
+
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📅 Lịch hôm nay", callback_data="hx:tkb:today")],
+                [InlineKeyboardButton("🌅 Lịch ngày mai", callback_data="hx:tkb:tomorrow")],
+                [InlineKeyboardButton("📅 Lịch tuần này", callback_data="hx:tkb:week")],
+                [InlineKeyboardButton("🗓️ Lịch tháng này", callback_data="hx:tkb:month")],
+                [InlineKeyboardButton("🔄 Refresh", callback_data="hx:tkb:refresh")]
+            ])
+
+            if action == "refresh":
+                text = "📅 **Thời khóa biểu Gia đình**\nChọn chức năng xem lịch bên dưới:"
+                await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+                return
+
+            if action in ("today", "tomorrow", "week", "month"):
+                try:
+                    result = subprocess.run(
+                        [sys.executable, "-c", f"import sys; sys.path.insert(0, '{repo_root}'); from tools.tkb_tool import get_tkb_tool; print(get_tkb_tool('{action}'))"],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    res_data = json.loads(result.stdout)
+                    if res_data.get("success"):
+                        results_list = res_data.get("results", [])
+                        if not results_list:
+                            text = f"📅 Không có lịch trình nào được tìm thấy cho: **{action}**."
+                        else:
+                            lines = [f"📅 **Thời khóa biểu - {action.upper()}**\n"]
+                            by_member = {}
+                            for r in results_list:
+                                m = r.get("Thành viên", "Cả nhà")
+                                if m not in by_member:
+                                    by_member[m] = []
+                                by_member[m].append(r)
+                            for member, items in by_member.items():
+                                lines.append(f"👤 **{member}**:")
+                                for item in items:
+                                    time_val = item.get("Thời gian", "").strip()
+                                    act_val = item.get("Hoạt động / Công việc", "").strip()
+                                    loc_val = item.get("Địa điểm", "").strip()
+                                    note_val = item.get("Ghi chú", "").strip()
+                                    day_val = item.get("Thứ / Ngày", "").strip()
+                                    
+                                    entry = f"  • "
+                                    if time_val:
+                                        entry += f"[{time_val}] "
+                                    entry += f"**{act_val}**"
+                                    if loc_val:
+                                        entry += f" ({loc_val})"
+                                    if note_val:
+                                        entry += f" - *Lưu ý: {note_val}*"
+                                    if action in ("week", "month") and day_val:
+                                        entry += f" (Vào {day_val})"
+                                    lines.append(entry)
+                                lines.append("")
+                            text = "\n".join(lines)
+                    else:
+                        text = f"❌ Lỗi lấy lịch trình: {res_data.get('error')}"
+                except Exception as e:
+                    text = f"❌ Lỗi: {e}"
+            else:
+                text = "Không nhận diện được lệnh lịch trình."
+
+            await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+            return
+
+        # --- News callbacks (hx:news:...) ---
+        if data.startswith("hx:news:"):
+            caller_id = str(getattr(query.from_user, "id", ""))
+            if not self._is_callback_user_authorized(
+                caller_id,
+                chat_id=query_chat_id,
+                chat_type=str(query_chat_type) if query_chat_type is not None else None,
+                thread_id=str(query_thread_id) if query_thread_id is not None else None,
+                user_name=query_user_name,
+            ):
+                await query.answer(text="⛔ Không có quyền")
+                return
+
+            await query.answer(text="Đang tải dữ liệu...")
+            action = data.split(":", 2)[-1]
+            repo_root = Path(__file__).parent.parent.parent
+            import subprocess
+            import sys
+
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📰 Tin tức tổng hợp", callback_data="hx:news:tintuc")],
+                [InlineKeyboardButton("💰 Giá vàng", callback_data="hx:news:vang"),
+                 InlineKeyboardButton("🏦 Tỷ giá ngoại tệ", callback_data="hx:news:tygia")],
+                [InlineKeyboardButton("⛽ Giá xăng dầu", callback_data="hx:news:xang")],
+                [InlineKeyboardButton("🌤 Thời tiết", callback_data="hx:news:thoitiet"),
+                 InlineKeyboardButton("🌊 Triều cường", callback_data="hx:news:trieucuong")],
+                [InlineKeyboardButton("📅 Âm lịch", callback_data="hx:news:amlich"),
+                 InlineKeyboardButton("📜 Ngày này năm xưa", callback_data="hx:news:today")],
+                [InlineKeyboardButton("🔄 Refresh / Menu chính", callback_data="hx:news:refresh")]
+            ])
+
+            if action == "refresh":
+                text = "📰 **BẢN TIN SÁNG HERMES**\nChọn các thông tin cần xem nhanh hôm nay bên dưới:"
+                await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+                return
+
+            if action in ("vang", "xang", "tygia", "thoitiet", "trieucuong", "amlich", "tintuc", "today"):
+                try:
+                    router_path = repo_root / "skills" / "news" / "lib" / "news_router.py"
+                    result = subprocess.run(
+                        [sys.executable, str(router_path), action],
+                        capture_output=True, text=True, timeout=30, encoding='utf-8'
+                    )
+                    text = result.stdout.strip()
+                    if not text:
+                        text = f"⚠️ Không nhận được dữ liệu phản hồi từ lệnh: {action}."
+                except Exception as e:
+                    text = f"❌ Lỗi thực thi lệnh {action}: {e}"
+            else:
+                text = "Không nhận diện được lệnh bản tin."
+
+            await query.edit_message_text(text=self.format_message(text), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+            return
+
         # --- Update prompt callbacks ---
         if not data.startswith("update_prompt:"):
             return
@@ -5465,6 +5883,98 @@ class TelegramAdapter(BasePlatformAdapter):
             except Exception as exc:
                 logger.error("[%s] mscmenu command failed: %s", self.name, exc, exc_info=True)
                 await msg.reply_text("❌ Lỗi khi tải MSC menu")
+                return True
+
+        # Check /xsmenu / xsmenu
+        if cleaned_text in ("xsmenu", "/xsmenu") or cleaned_text.startswith(("xsmenu ", "/xsmenu ")):
+            logger.info("[Telegram] Intercepting xsmenu command: %s", text)
+            try:
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎫 Kết quả hôm nay", callback_data="hx:xs:homnay")],
+                    [InlineKeyboardButton("📅 Kết quả hôm qua", callback_data="hx:xs:homqua")],
+                    [InlineKeyboardButton("📊 Thống kê lô tô", callback_data="hx:xs:lo:30")],
+                    [InlineKeyboardButton("🔮 Soi cầu Pascal & MC", callback_data="hx:xs:soilo:30")],
+                    [InlineKeyboardButton("🔄 Refresh", callback_data="hx:xs:refresh")]
+                ])
+                await msg.reply_text(
+                    text=self.format_message("🎰 **Xổ Số Miền Bắc (XSMB)**\nChọn chức năng bên dưới để xem hoặc phân tích kết quả xổ số:"),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                )
+                return True
+            except Exception as exc:
+                logger.error("[%s] xsmenu command failed: %s", self.name, exc, exc_info=True)
+                await msg.reply_text("❌ Lỗi khi tải XSMB menu")
+                return True
+
+        # Check /ccmenu / ccmenu
+        if cleaned_text in ("ccmenu", "/ccmenu") or cleaned_text.startswith(("ccmenu ", "/ccmenu ")):
+            logger.info("[Telegram] Intercepting ccmenu command: %s", text)
+            try:
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📄 Danh sách văn bản mới", callback_data="hx:cc:list")],
+                    [InlineKeyboardButton("📅 Văn bản hôm nay", callback_data="hx:cc:list_today")],
+                    [InlineKeyboardButton("✅ Kết thúc toàn bộ", callback_data="hx:cc:end_all")],
+                    [InlineKeyboardButton("❓ Trợ giúp", callback_data="hx:cc:help")],
+                    [InlineKeyboardButton("🔄 Refresh", callback_data="hx:cc:refresh")]
+                ])
+                await msg.reply_text(
+                    text=self.format_message("📁 **Quản lý Công văn Quảng Ninh**\nChọn chức năng xử lý công văn bên dưới:"),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                )
+                return True
+            except Exception as exc:
+                logger.error("[%s] ccmenu command failed: %s", self.name, exc, exc_info=True)
+                await msg.reply_text("❌ Lỗi khi tải Công văn menu")
+                return True
+
+        # Check /tkbmenu / tkbmenu / tkbmenu (with or without slash)
+        if cleaned_text in ("tkbmenu", "/tkbmenu") or cleaned_text.startswith(("tkbmenu ", "/tkbmenu ")):
+            logger.info("[Telegram] Intercepting tkbmenu command: %s", text)
+            try:
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📅 Lịch hôm nay", callback_data="hx:tkb:today")],
+                    [InlineKeyboardButton("🌅 Lịch ngày mai", callback_data="hx:tkb:tomorrow")],
+                    [InlineKeyboardButton("📅 Lịch tuần này", callback_data="hx:tkb:week")],
+                    [InlineKeyboardButton("🗓️ Lịch tháng này", callback_data="hx:tkb:month")],
+                    [InlineKeyboardButton("🔄 Refresh", callback_data="hx:tkb:refresh")]
+                ])
+                await msg.reply_text(
+                    text=self.format_message("📅 **Thời khóa biểu Gia đình**\nChọn chức năng xem lịch bên dưới:"),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                )
+                return True
+            except Exception as exc:
+                logger.error("[%s] tkbmenu command failed: %s", self.name, exc, exc_info=True)
+                await msg.reply_text("❌ Lỗi khi tải TKB menu")
+                return True
+
+        # Check /newsmenu / newsmenu
+        if cleaned_text in ("newsmenu", "/newsmenu") or cleaned_text.startswith(("newsmenu ", "/newsmenu ")):
+            logger.info("[Telegram] Intercepting newsmenu command: %s", text)
+            try:
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📰 Tin tức tổng hợp", callback_data="hx:news:tintuc")],
+                    [InlineKeyboardButton("💰 Giá vàng", callback_data="hx:news:vang"),
+                     InlineKeyboardButton("🏦 Tỷ giá ngoại tệ", callback_data="hx:news:tygia")],
+                    [InlineKeyboardButton("⛽ Giá xăng dầu", callback_data="hx:news:xang")],
+                    [InlineKeyboardButton("🌤 Thời tiết", callback_data="hx:news:thoitiet"),
+                     InlineKeyboardButton("🌊 Triều cường", callback_data="hx:news:trieucuong")],
+                    [InlineKeyboardButton("📅 Âm lịch", callback_data="hx:news:amlich"),
+                     InlineKeyboardButton("📜 Ngày này năm xưa", callback_data="hx:news:today")],
+                    [InlineKeyboardButton("🔄 Refresh / Menu chính", callback_data="hx:news:refresh")]
+                ])
+                await msg.reply_text(
+                    text=self.format_message("📰 **BẢN TIN SÁNG HERMES**\nChọn các thông tin cần xem nhanh hôm nay bên dưới:"),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                )
+                return True
+            except Exception as exc:
+                logger.error("[%s] newsmenu command failed: %s", self.name, exc, exc_info=True)
+                await msg.reply_text("❌ Lỗi khi tải Bản tin menu")
                 return True
 
         return False

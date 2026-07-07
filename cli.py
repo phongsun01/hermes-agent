@@ -9093,7 +9093,30 @@ class HermesCLI:
         elif canonical == "reload-skills":
             with self._busy_command(self._slow_command_status(cmd_original)):
                 self._reload_skills()
+        elif canonical == "news":
+            import subprocess
+            import sys
+            from pathlib import Path
+            rest = cmd_original.split(None, 1)
+            args = rest[1].strip() if len(rest) > 1 else ""
+            router_path = Path(__file__).resolve().parent / "skills" / "news" / "lib" / "news_router.py"
+            cmd_run = [sys.executable, str(router_path)]
+            if args:
+                # Split args using shlex to support spaces inside quotes if necessary
+                import shlex
+                try:
+                    cmd_run.extend(shlex.split(args))
+                except Exception:
+                    cmd_run.extend(args.split())
+            try:
+                res = subprocess.run(cmd_run, capture_output=True, text=True, encoding='utf-8')
+                print(res.stdout.strip())
+                if res.stderr:
+                    print(res.stderr.strip(), file=sys.stderr)
+            except Exception as e:
+                print(f"Error executing news command: {e}")
         elif canonical == "bundles":
+
             self._handle_bundles_command(cmd_original)
         elif canonical == "browser":
             self._handle_browser_command(cmd_original)
