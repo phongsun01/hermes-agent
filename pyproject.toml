@@ -99,6 +99,8 @@ dependencies = [
   # install rather than gating it behind an extra + a mid-session lazy install
   # (which deadlocked the CLI under prompt_toolkit — see #40490).
   "Pillow==12.2.0",
+  "pandas==3.0.3",
+  "numpy==2.4.3",
 ]
 
 [project.optional-dependencies]
