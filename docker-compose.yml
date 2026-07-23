@@ -6,22 +6,14 @@
 #
 # Set HERMES_UID / HERMES_GID to the host user that owns ~/.hermes so
 # files created inside the container stay readable/writable on the host.
-# The s6-overlay stage2 hook remaps the internal `hermes` user to these
-# values via usermod/groupmod; each supervised service then drops to that
-# user via `s6-setuidgid`.
+# The entrypoint remaps the internal `hermes` user to these values via
+# usermod/groupmod + gosu.
 #
 # Security notes:
 #   - The dashboard service binds to 127.0.0.1 by default. It stores API
 #     keys; exposing it on LAN without auth is unsafe. If you want remote
 #     access, use an SSH tunnel or put it behind a reverse proxy that
 #     adds authentication — do NOT pass --insecure --host 0.0.0.0.
-#   - If you override entrypoint, keep `/init` as the first command in
-#     the chain (or let docker use the image's default ENTRYPOINT,
-#     which is `["/init", "/opt/hermes/docker/main-wrapper.sh"]`).
-#     `/init` is s6-overlay's PID 1 — it runs the cont-init.d scripts
-#     (chown, profile reconcile, dashboard toggle) and sets up the
-#     supervision tree before any service starts. Bypassing it skips
-#     all of that setup and the gateway will not work correctly.
 #   - The gateway's API server is off unless you uncomment API_SERVER_KEY
 #     and API_SERVER_HOST. See docs/user-guide/api-server.md before doing
 #     this on an internet-facing host.
@@ -32,45 +24,66 @@ services:
     image: hermes-agent
     container_name: hermes
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "8642:8642"
     volumes:
       - ~/.hermes:/opt/data
+      - d:/Antigravity/PersonalVault:/opt/personal-vault
+      - d:/Antigravity/xlvp:/opt/xlvp
     environment:
+      # ── Infrastructure ────────────────────────────────────────────────────────
       - HERMES_UID=${HERMES_UID:-10000}
       - HERMES_GID=${HERMES_GID:-10000}
+      - TZ=Asia/Ho_Chi_Minh
+      - HERMES_GATEWAY_BOOTSTRAP_STATE=running
+      - HERMES_GATEWAY_NO_SUPERVISE=0
+      - PLAYWRIGHT_BROWSERS_PATH=/opt/data/.playwright
       # To expose the OpenAI-compatible API server beyond localhost,
       # uncomment BOTH lines (API_SERVER_KEY is mandatory for auth):
-      # - API_SERVER_HOST=0.0.0.0
-      # - API_SERVER_KEY=${API_SERVER_KEY}
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_KEY=zalo-hermes-secret-key-123456
+      # ── Platform config (Zalo, Telegram, v.v.) ───────────────────────────────
+      # Tất cả cấu hình platform đặt trong ~/.hermes/.env để tránh xung đột.
+      # docker-compose.yml KHÔNG set các biến ZALO_*, TELEGRAM_*, v.v. ở đây.
       # Microsoft Teams — uncomment and fill in to enable Teams gateway.
-      # Register your bot at https://dev.botframework.com/ to get these values.
       # - TEAMS_CLIENT_ID=${TEAMS_CLIENT_ID}
       # - TEAMS_CLIENT_SECRET=${TEAMS_CLIENT_SECRET}
       # - TEAMS_TENANT_ID=${TEAMS_TENANT_ID}
       # - TEAMS_ALLOWED_USERS=${TEAMS_ALLOWED_USERS}
       # - TEAMS_PORT=${TEAMS_PORT:-3978}
-      # Google Chat — uncomment and fill in to enable the Google Chat gateway.
-      # See website/docs/user-guide/messaging/google_chat.md for the full setup.
-      # The SA JSON path must point to a file mounted into the container —
-      # add a volume entry above (e.g. ``- ~/.hermes/google-chat-sa.json:/secrets/google-chat-sa.json:ro``)
-      # then set GOOGLE_CHAT_SERVICE_ACCOUNT_JSON to that mount path.
-      # - GOOGLE_CHAT_PROJECT_ID=${GOOGLE_CHAT_PROJECT_ID}
-      # - GOOGLE_CHAT_SUBSCRIPTION_NAME=${GOOGLE_CHAT_SUBSCRIPTION_NAME}
-      # - GOOGLE_CHAT_SERVICE_ACCOUNT_JSON=${GOOGLE_CHAT_SERVICE_ACCOUNT_JSON}
-      # - GOOGLE_CHAT_ALLOWED_USERS=${GOOGLE_CHAT_ALLOWED_USERS}
-    command: ["gateway", "run"]
+    command: ["sleep", "infinity"]
 
   dashboard:
     image: hermes-agent
     container_name: hermes-dashboard
     restart: unless-stopped
-    network_mode: host
     depends_on:
       - gateway
     volumes:
       - ~/.hermes:/opt/data
+      - d:/Antigravity/PersonalVault:/opt/personal-vault
     environment:
       - HERMES_UID=${HERMES_UID:-10000}
       - HERMES_GID=${HERMES_GID:-10000}
-    # Localhost-only. For remote access, tunnel via `ssh -L 9119:localhost:9119`.
-    command: ["dashboard", "--host", "127.0.0.1", "--no-open"]
+      - TZ=Asia/Ho_Chi_Minh
+      - HERMES_GATEWAY_NO_SUPERVISE=1
+      - S6_PROFILE_GATEWAY_SCANDIR=/tmp/dummy_scandir
+    ports:
+      - "9119:9119"
+    # Accessible from host at http://localhost:9119
+    # --insecure is required when binding to non-localhost address inside Docker
+    command: ["dashboard", "--host", "0.0.0.0", "--port", "9119", "--no-open", "--insecure"]
+
+  lightrag:
+    image: ghcr.io/hkuds/lightrag:latest
+    container_name: lightrag
+    restart: unless-stopped
+    ports:
+      - "9621:9621"
+    volumes:
+      - lightrag_data:/data
+    env_file:
+      - .env.lightrag
+
+volumes:
+  lightrag_data:

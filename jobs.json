@@ -1,0 +1,481 @@
+{
+  "jobs": [
+    {
+      "id": "e898baf87e32",
+      "name": "nhac hop",
+      "prompt": "Nh\u1eafc nh\u1edf: \"B\u1ea1n c\u00f3 m\u1ed9t cu\u1ed9c h\u1ecdp l\u00fac 14:00. H\u00e3y chu\u1ea9n b\u1ecb t\u00e0i li\u1ec7u v\u00e0 s\u1eb5n s\u00e0ng tham d\u1ef1.\"",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "30 13 * * *",
+        "display": "30 13 * * *"
+      },
+      "schedule_display": "30 13 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 32
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-09T07:12:29.973432+00:00",
+      "next_run_at": "2026-07-08T13:30:00+07:00",
+      "last_run_at": "2026-07-07T13:31:59.350012+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "202d81764afb",
+      "name": "Quet cong van den",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8-17 * * 1-5",
+        "display": "0 8-17 * * 1-5"
+      },
+      "schedule_display": "0 8-17 * * 1-5 (08h-17h VN T2-T6)",
+      "script": "congchuc/congchuc_scrape.py",
+      "no_agent": true,
+      "deliver": "zalo",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum"
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "skills": [],
+      "skill": null,
+      "next_run_at": "2026-07-07T14:00:00+07:00",
+      "paused_at": null,
+      "paused_reason": null,
+      "last_run_at": "2026-07-07T13:00:48.205986+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null
+    },
+    {
+      "id": "c98455e5e7fe",
+      "name": "weather-quangninh",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "weather_quangninh.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 6 * * *",
+        "display": "0 6 * * *"
+      },
+      "schedule_display": "0 6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 21
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-17T06:59:12.999869+00:00",
+      "next_run_at": "2026-07-08T06:00:00+07:00",
+      "last_run_at": "2026-07-07T06:00:25.951513+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "d7f9e2c1a4b6",
+      "name": "Quet cong van di",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8,15 * * 1-5",
+        "display": "0 8,15 * * 1-5"
+      },
+      "schedule_display": "0 8,15 * * 1-5 (08h, 15h VN T2-T6)",
+      "script": "congchuc/congchuc_vbdi_scrape.py",
+      "no_agent": true,
+      "deliver": "zalo",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum"
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "skills": [],
+      "skill": null,
+      "next_run_at": "2026-07-07T15:00:00+07:00",
+      "paused_at": null,
+      "paused_reason": null,
+      "last_run_at": "2026-07-07T08:00:18.802882+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null
+    },
+    {
+      "id": "a1b2c3d4e5f6",
+      "name": "Bao cao tuan cong van den",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 10 * * 5",
+        "display": "0 10 * * 5"
+      },
+      "schedule_display": "0 10 * * 5 (17h00 VN thu 6)",
+      "script": "congchuc/congchuc_report_weekly.sh",
+      "no_agent": true,
+      "deliver": "zalo",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum"
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "skills": [],
+      "skill": null,
+      "next_run_at": "2026-07-10T10:00:00+07:00",
+      "last_run_at": "2026-07-03T10:00:38.235695+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null
+    },
+    {
+      "id": "b2c3d4e5f6a7",
+      "name": "Export Excel CV den",
+      "schedule": {
+        "kind": "cron",
+        "expr": "5 10 * * 5",
+        "display": "5 10 * * 5"
+      },
+      "schedule_display": "5 10 * * 5 (17h05 VN thu 6)",
+      "script": "congchuc/congchuc_report_excel.sh",
+      "no_agent": true,
+      "deliver": "zalo",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum"
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "skills": [],
+      "skill": null,
+      "next_run_at": "2026-07-10T10:05:00+07:00",
+      "last_run_at": "2026-07-03T10:05:39.137684+07:00",
+      "last_status": "error",
+      "last_error": "Script exited with code 1\nstdout:\nopenpyxl not installed. Run: pip install openpyxl",
+      "last_delivery_error": null
+    },
+    {
+      "id": "c3d4e5f6a7b8",
+      "name": "Bao cao thang cong van den",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 7 1 * *",
+        "display": "0 7 1 * *"
+      },
+      "schedule_display": "0 7 1 * *",
+      "script": "congchuc/congchuc_report_monthly.sh",
+      "no_agent": true,
+      "deliver": "zalo",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum"
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "skills": [],
+      "skill": null,
+      "next_run_at": "2026-08-01T07:00:00+07:00",
+      "last_run_at": "2026-07-01T01:01:24.030591+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null
+    },
+    {
+      "id": "d4e5f6a7b8c9",
+      "name": "Kiem tra qua han cong van",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 7 * * 1-5",
+        "display": "0 7 * * 1-5"
+      },
+      "schedule_display": "0 7 * * 1-5",
+      "script": "congchuc/congchuc_check_overdue.sh",
+      "no_agent": true,
+      "deliver": "zalo",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum"
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "skills": [],
+      "skill": null,
+      "next_run_at": "2026-07-08T07:00:00+07:00",
+      "last_run_at": "2026-07-07T07:00:14.456877+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null
+    },
+    {
+      "id": "f9a8b7c6d5e4",
+      "name": "Du thao van ban F9",
+      "schedule": {
+        "kind": "zalo_command",
+        "expr": "^(d\u1ef1 th\u1ea3o|du thao|draft)\\s+(\\d+)",
+        "display": "L\u1ec7nh Zalo: d\u1ef1 th\u1ea3o <s\u1ed1_\u0111\u1ebfn>"
+      },
+      "schedule_display": "Zalo Command: d\u1ef1 th\u1ea3o <s\u1ed1_\u0111\u1ebfn>",
+      "script": "congchuc/congchuc_draft.py --so-den {2}",
+      "no_agent": true,
+      "deliver": "zalo",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum"
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "skills": [],
+      "skill": null
+    },
+    {
+      "id": "74d169debe56",
+      "name": "Gi\u00e1 x\u0103ng v\u00e0ng t\u1ef7 gi\u00e1 s\u00e1ng",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "gia_hang_hoa_sang.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "5 6 * * *",
+        "display": "5 6 * * *"
+      },
+      "schedule_display": "5 6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 13
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-28T09:48:41.145701+07:00",
+      "next_run_at": "2026-07-08T06:05:00+07:00",
+      "last_run_at": "2026-07-07T06:05:11.949693+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum",
+        "thread_id": null
+      },
+      "enabled_toolsets": [
+        "web",
+        "terminal",
+        "file"
+      ],
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "8dfb5caeb2f9",
+      "name": "XSMB h\u00f4m nay",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "xsmb_cron.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "35 18 * * *",
+        "display": "35 18 * * *"
+      },
+      "schedule_display": "35 18 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 7
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-07-01T14:23:35.563512+07:00",
+      "next_run_at": "2026-07-07T18:35:00+07:00",
+      "last_run_at": "2026-07-06T18:35:28.719923+07:00",
+      "last_status": "error",
+      "last_error": "Script exited with code 1\nstderr:\nTraceback (most recent call last):\n  File \"/opt/data/scripts/xsmb_cron.py\", line 15, in <module>\n    import pandas as pd\nModuleNotFoundError: No module named 'pandas'",
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "2825656851207986406",
+        "chat_name": "Xitrum",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "860f9a426c2e",
+      "name": "B\u00e1o th\u1ee9c t\u1eadp th\u1ec3 d\u1ee5c s\u00e1ng",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "baothuc_taptheduc.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "30 6 * * *",
+        "display": "30 6 * * *"
+      },
+      "schedule_display": "30 6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 5
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-07-02T10:24:41.745193+07:00",
+      "next_run_at": "2026-07-08T06:30:00+07:00",
+      "last_run_at": "2026-07-07T06:30:12.605788+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "zalo:3339712927031818889",
+      "origin": {
+        "platform": "zalo",
+        "chat_id": "3339712927031818889",
+        "chat_name": "3339712927031818889",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "tkb_weekly_report",
+      "name": "B\u00e1o c\u00e1o Th\u1eddi kh\u00f3a bi\u1ec3u h\u00e0ng tu\u1ea7n",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 7 * * 1",
+        "display": "0 7 * * 1"
+      },
+      "schedule_display": "0 7 * * 1",
+      "deliver": "zalo:3339712927031818889",
+      "enabled": true,
+      "state": "scheduled",
+      "next_run_at": "2026-07-13T07:00:00+07:00",
+      "last_run_at": "2026-07-06T07:15:31.524300+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": "delivery error: Adapter send failed: Timeout context manager should be used inside a task",
+      "script": "tkb/tkb_deliver.py week",
+      "no_agent": true
+    },
+    {
+      "id": "tkb_daily_morning",
+      "name": "B\u00e1o c\u00e1o TKB s\u00e1ng (H\u00f4m nay)",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 6 * * *",
+        "display": "0 6 * * *"
+      },
+      "schedule_display": "0 6 * * *",
+      "deliver": "zalo:3339712927031818889",
+      "enabled": true,
+      "state": "scheduled",
+      "next_run_at": "2026-07-08T06:00:00+07:00",
+      "last_run_at": "2026-07-07T06:03:47.374882+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "script": "tkb/tkb_deliver.py today",
+      "no_agent": true
+    },
+    {
+      "id": "tkb_daily_evening",
+      "name": "B\u00e1o c\u00e1o TKB t\u1ed1i (Ng\u00e0y mai)",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 21 * * *",
+        "display": "0 21 * * *"
+      },
+      "schedule_display": "0 21 * * *",
+      "deliver": "zalo:3339712927031818889",
+      "enabled": true,
+      "state": "scheduled",
+      "next_run_at": "2026-07-07T21:00:00+07:00",
+      "last_run_at": "2026-07-06T21:04:35.120059+07:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "script": "tkb/tkb_deliver.py tomorrow",
+      "no_agent": true
+    }
+  ],
+  "updated_at": "2026-07-07T13:31:59.356787+07:00"
+}

@@ -1,0 +1,1297 @@
+[
+  {
+    "category": "Người lớn",
+    "question": "Cái gì bạn có, nhưng người khác lại dùng nó nhiều hơn bạn?",
+    "answer": "Tên của bạn"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Thứ gì luôn đi lên mà không bao giờ đi xuống?",
+    "answer": "Tuổi"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Tôi có thể bay nhưng không có cánh. Tôi có thể khóc nhưng không có mắt. Tôi là gì?",
+    "answer": "Đám mây"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có một cổ và không có đầu, có lưng và không có chân?",
+    "answer": "Áo sơ mi"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Thứ gì bạn bỏ vào thì cứng, lấy ra thì mềm?",
+    "answer": "Bột (hoặc mì) khi nấu"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Tại sao con quạ đậu trên cành cây không bị ngã?",
+    "answer": "Vì nó có mỏ (mỏ vịn)"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể chứa cả căn phòng nhưng không chiếm một chút không gian nào?",
+    "answer": "Ánh sáng"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Bạn có thể cầm nó bằng tay trái nhưng không bao giờ cầm được bằng tay phải. Đó là gì?",
+    "answer": "Khuỷu tay phải của bạn"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có rất nhiều chìa khóa nhưng không mở được cánh cửa nào?",
+    "answer": "Đàn piano"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể nói chuyện mà không cần miệng, nghe mà không cần tai?",
+    "answer": "Tiếng vọng/tin đồn"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Bạn càng chạy, nó càng khó bắt kịp. Đó là gì?",
+    "answer": "Hơi thở của bạn"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì luôn đến nhưng không bao giờ đến nơi?",
+    "answer": "Ngày mai"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể đi qua nước mà không bị ướt?",
+    "answer": "Bóng của nó"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì bạn càng chia sẻ, bạn càng có ít đi?",
+    "answer": "Bí mật"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Con gì luôn phải nói dối?",
+    "answer": "Con vẹt (nói nhại)"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể chứa đầy nhưng vẫn rỗng?",
+    "answer": "Lời hứa"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Bạn có thể nhìn thấy nó vào ban ngày nhưng không bao giờ thấy vào ban đêm. Đó là gì?",
+    "answer": "Mặt trời"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể cao hơn một tòa nhà nhưng lại nhẹ hơn một chiếc lông vũ?",
+    "answer": "Cái bóng của tòa nhà"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể đi vòng quanh thế giới mà vẫn ở nguyên một chỗ?",
+    "answer": "Tem thư"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có một mắt nhưng không nhìn thấy gì?",
+    "answer": "Cây kim"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể làm cho bạn khóc, cười và thay đổi tất cả cảm xúc?",
+    "answer": "Phim/Sách"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì không có trọng lượng nhưng bạn có thể thấy nó?",
+    "answer": "Ánh sáng"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể nuốt chửng mọi thứ: chim, thú, nhà, cây, thậm chí cả núi?",
+    "answer": "Thời gian"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Bạn có thể gọi nó là gì mặc dù nó không bao giờ thuộc về bạn?",
+    "answer": "Tên của bạn"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể mở cửa mà không cần tay, đóng cửa mà không cần chốt?",
+    "answer": "Gió"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể làm đầy một chiếc hộp nhưng lại không chiếm chỗ?",
+    "answer": "Ánh sáng"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể trả lời mọi câu hỏi nhưng không bao giờ tự mình nói?",
+    "answer": "Google/Công cụ tìm kiếm"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể đi lên và xuống mà không di chuyển?",
+    "answer": "Cầu thang"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể nói nhiều thứ mà không cần dùng lời?",
+    "answer": "Ngôn ngữ cơ thể"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì bạn không mượn mà phải trả?",
+    "answer": "Lời cảm ơn"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Bạn có thể kể ra 3 ngày liên tiếp mà không có thứ Hai, thứ Ba, thứ Tư, thứ Năm, thứ Sáu, thứ Bảy, Chủ Nhật?",
+    "answer": "Hôm qua, hôm nay và ngày mai"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Con gì không bao giờ biết nói nhưng bạn vẫn có thể nói chuyện với nó?",
+    "answer": "Sách"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Có một đàn vịt đang đi trên đường, con đi đầu có 2 con đi sau, con đi cuối có 2 con đi trước, con ở giữa có 2 con ở hai bên. Hỏi có mấy con vịt?",
+    "answer": "Có 4 con vịt (hai con đi trước hai con, hai con đi sau hai con, hai con ở giữa)"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có đầu và đuôi, nhưng không có thân?",
+    "answer": "Đồng xu"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Tại sao khi bắn súng người ta thường nhắm một mắt?",
+    "answer": "Để ngắm đường ngắm bắn chính xác hơn"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể đi xuyên qua tường mà không đục lỗ?",
+    "answer": "Âm thanh/ánh sáng"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Tháng nào có 28 ngày?",
+    "answer": "Tất cả các tháng đều có ít nhất 28 ngày"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì bạn có thể giữ nhưng không bao giờ chạm vào được?",
+    "answer": "Lời hứa/bí mật"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Một người đàn ông đang lái xe tải. Anh ta tắt đèn pha. Không có ánh trăng. Một con mèo đen băng qua đường. Làm sao anh ta thấy con mèo?",
+    "answer": "Đó là ban ngày"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì luôn ở trước mặt bạn nhưng bạn không bao giờ nhìn thấy nó?",
+    "answer": "Tương lai"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có nhiều răng nhưng không thể cắn?",
+    "answer": "Cái lược"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thể bay mà không có cánh, khóc mà không có mắt?",
+    "answer": "Đám mây"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì bạn càng cho nó ăn thì nó càng chết?",
+    "answer": "Lửa"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Nếu bạn làm rơi một viên đá xuống Biển Đỏ, nó sẽ như thế nào?",
+    "answer": "Bị ướt"
+  },
+  {
+    "category": "Người lớn",
+    "question": "Cái gì có thành phố, nhưng không có nhà; có núi, nhưng không có cây; và có nước, nhưng không có cá?",
+    "answer": "Bản đồ"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có mắt mà không nhìn thấy?",
+    "answer": "Củ khoai tây"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có lưỡi mà không nói được?",
+    "answer": "Cái giày"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có cổ mà không có đầu?",
+    "answer": "Cái chai"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có bụng mà không ăn no?",
+    "answer": "Ấm đun nước"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có chân mà không biết đi?",
+    "answer": "Cái bàn, cái ghế"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì càng chạy càng đứng yên?",
+    "answer": "Đồng hồ"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì mình cầm nhưng không phải của mình?",
+    "answer": "Tên của người khác"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì không có cánh mà bay được?",
+    "answer": "Diều"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì không có chân mà vẫn chạy được?",
+    "answer": "Nước"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì không có tay mà vỗ tay được?",
+    "answer": "Sấm"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì không có miệng mà vẫn kêu được?",
+    "answer": "Chuông"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có nhiều màu nhưng chỉ có một hình dạng?",
+    "answer": "Cầu vồng"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì ban ngày ngủ, ban đêm thức?",
+    "answer": "Mặt trăng, sao"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có thể đi qua cửa mà không cần mở?",
+    "answer": "Gió"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì mặc áo khi đi ngủ?",
+    "answer": "Cái gối"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có thể ở khắp mọi nơi nhưng không chiếm chỗ?",
+    "answer": "Không khí"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có thể chảy nhưng không phải nước?",
+    "answer": "Thời gian"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có thể rơi nhưng không bao giờ bị thương?",
+    "answer": "Mưa"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có thể bay lên trời mà không cần cánh?",
+    "answer": "Khói"
+  },
+  {
+    "category": "Trẻ em",
+    "question": "Cái gì có thể xanh, vàng hoặc đỏ?",
+    "answer": "Đèn giao thông, lá cây, quả ớt"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mồm bò mà không phải mồm bò. Mình đồng da sắt, hai con mắt trên lưng, cái chân giữa bụng.",
+    "answer": "Con ốc sên"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa bằng hạt đỗ, ăn giỗ cả làng.",
+    "answer": "Con ruồi"
+  },
+  {
+    "category": "Con vật",
+    "question": "Thân em nửa chuột nửa chim, Ngày treo chân ngủ, tối tìm mồi bay.",
+    "answer": "Con dơi"
+  },
+  {
+    "category": "Con vật",
+    "question": "Da thịt như than, Áo choàng như tuyết, Giúp người trị bệnh, Mà tên chẳng hiền.",
+    "answer": "Gà ác"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa bằng quả mướp, ăn cướp cà làng.",
+    "answer": "Con chuột"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con chi đánh thắng ông vua, Nhưng mà nó lại đánh thua thầy chùa.",
+    "answer": "Con chấy"
+  },
+  {
+    "category": "Con vật",
+    "question": "Tám sào chống cạn, hai nạng chống xiên, con mắt láo liên, cái đầu không có!. Con gì càng to càng nhỏ.",
+    "answer": "Con cua"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cổ cao cao, cẳng cao cao, chân đen cánh trắng ra vào đồng xanh.",
+    "answer": "Con cò"
+  },
+  {
+    "category": "Con vật",
+    "question": "Ăn no, bụng to mắt híp, mồm kêu ụt ịt, nằm thở phì phò.",
+    "answer": "Con heo"
+  },
+  {
+    "category": "Con vật",
+    "question": "Hai mắt trong veo, thích nằm sưởi nắng, thích trèo cây cau.",
+    "answer": "Con mèo"
+  },
+  {
+    "category": "Con vật",
+    "question": "Chân ngắn, có màng, mỏ bẹt màu vàng, hay kêu cạp cạp.",
+    "answer": "Con vịt"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con gì biết đi nhưng người ta vẫn nói nó không biết đi?",
+    "answer": "Con bò"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con gì đầu dê mình ốc.",
+    "answer": "Con dốc"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con gì đập thì sống, không đập thì chết.",
+    "answer": "Con tim"
+  },
+  {
+    "category": "Con vật",
+    "question": "Sở thú bị cháy, con gì chạy ra đầu tiên?",
+    "answer": "Con người"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con gì vỗ cánh bay nhanh, Không đẻ trứng lại đẻ thành con ngay?",
+    "answer": "Con dơi"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mèo tam thể lai mèo tam thể thì ra con gì?",
+    "answer": "Mèo tam thể không đẻ được"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì có vú nuôi con?",
+    "answer": "Cá voi"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì cứ mãi béo tròn xưa nay?",
+    "answer": "Cá mập"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì mà lại biết bay?",
+    "answer": "Cá chim"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì một lứa một bầy y nhau?",
+    "answer": "Cá mè"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì đầu bẹp có râu?",
+    "answer": "Cá trê"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì nghe tưởng cùng trâu họ hàng?",
+    "answer": "Cá bò"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì vượt vũ môn quan?",
+    "answer": "Cá chép"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cá gì mùa rụng lá vàng mùa sương?",
+    "answer": "Cá thu"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con chi không ăn, không nói, không cười, Nghiêng lưng mà chịu với người hôm mai.",
+    "answer": "Con đà lót ván, sập ngựa"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mình bằng hạt gạo, Mỏ bằng hạt kê, Hỏi đi đâu về? Đi làm thợ mộc.",
+    "answer": "Con mọt"
+  },
+  {
+    "category": "Con vật",
+    "question": "Thường nằm đầu hè, giữ nhà cho chủ, người lạ nó sủa, người quen nó mừng? Ngáp táp được ruồi.",
+    "answer": "Con chó"
+  },
+  {
+    "category": "Con vật",
+    "question": "Đuôi ngắn tai dài, mắt hồng lông mượt, có tài chạy nhanh.",
+    "answer": "Con thỏ"
+  },
+  {
+    "category": "Con vật",
+    "question": "Có cánh mà không có lông?",
+    "answer": "Con diều"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con nào ít ai dám ăn, một kẻ lầm lỗi cả bày chịu theo?",
+    "answer": "Con sâu"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con vật gì là thần nhưng thêm dấu lại thành ác ma?",
+    "answer": "Con rùa"
+  },
+  {
+    "category": "Con vật",
+    "question": "Miệng rộng nhưng không nói một từ. Mang được miếng gỗ lớn nhưng không mang được hòn sỏi?",
+    "answer": "Con sông"
+  },
+  {
+    "category": "Con vật",
+    "question": "Đi ngược chiều nhưng vẫn về đích?",
+    "answer": "Con giun"
+  },
+  {
+    "category": "Con vật",
+    "question": "Có sống mà chẳng có lưng, Có lưỡi có mũi mà không có mồm.",
+    "answer": "Con dao"
+  },
+  {
+    "category": "Con vật",
+    "question": "Tôi có 4 cái chân, 1 cái lưng nhưng không có cơ thể.",
+    "answer": "Cái bàn"
+  },
+  {
+    "category": "Con vật",
+    "question": "Nắng lửa mưa dầu tôi đâu bỏ bạn. Tối lửa tắt đèn sao bạn lại bỏ tôi.",
+    "answer": "Cái bóng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa bằng một thước, Mà bước không qua. Nắng ba năm ta chưa hề bỏ bạn. Không phải lúc nào cũng thấy nó, không phải lúc nào cũng chạm được nó.",
+    "answer": "Cái bóng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cái gì không nhìn thấy nhưng lúc nào cũng theo đuổi bạn?",
+    "answer": "Cái bóng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Bàn gì xe ngựa sớm chiều giơ ra.",
+    "answer": "Bàn cờ tướng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Bàn gì mà lại bước gần bước xa.",
+    "answer": "Bàn chân"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cái gì mà đi thì nằm, đứng cũng nằm, nhưng nằm lại đứng.",
+    "answer": "Bàn chân"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa bằng cái lá đa, đi xa về gần.",
+    "answer": "Bàn chân"
+  },
+  {
+    "category": "Con vật",
+    "question": "Lưng trước bụng sau, Con mắt ở dưới cái đầu ở trên.",
+    "answer": "Bàn chân"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con gì có mũi có lưỡi hẳn hoi. Có sống không chết người đời cầm luôn?",
+    "answer": "Con dao"
+  },
+  {
+    "category": "Con vật",
+    "question": "Hột để sống: Một tên. Hột nấu lên: tên khác. Trong nhà nông các bác. Đều có mặt cả hai?",
+    "answer": "Hột gạo"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mặt gì tròn trịa trên cao, Toả ra những ánh nắng đào đẹp thay?",
+    "answer": "Mặt trời"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mặt gì mát dịu đêm nay, Cây đa, chú cuội, đứng đây rõ ràng?",
+    "answer": "Mặt trăng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa bằng cái vung, Vùng xuống ao, Đào chẳng thấy, Lấy chẳng được.",
+    "answer": "Mặt trăng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mặt gì bằng phẳng thênh thang, Người đi muôn lối dọc ngang phố phường?",
+    "answer": "Mặt đất"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mặt gì làm bãi chiến trường, Làm cho đổ máu, tan xương, cháy nhà?",
+    "answer": "Mặt trận"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mặt gì để doạ người ta, Đeo vào trẻ sợ như ma hiện hồn?",
+    "answer": "Mặt nạ"
+  },
+  {
+    "category": "Con vật",
+    "question": "Mặt gì xoa động luôn luôn, Thuyền bè qua lại bán buôn hàng ngày?",
+    "answer": "Mặt biển (Mặt sông)"
+  },
+  {
+    "category": "Con vật",
+    "question": "Quả gì có đủ năm châu?",
+    "answer": "Quả đất"
+  },
+  {
+    "category": "Con vật",
+    "question": "Quả gì lắc nhẹ, đâu đâu cũng rền?",
+    "answer": "Quả chuông"
+  },
+  {
+    "category": "Con vật",
+    "question": "Quả gì gang sắt đúc nên, Hễ nghe tiếng rú người liền núp mau?",
+    "answer": "Quả bom"
+  },
+  {
+    "category": "Con vật",
+    "question": "Thân em thì nhỏ tí ti, Các bà, các chị, các dì đều thương, Em đi, em lại bốn phương, Dọc ngang lắm lối, lách luồn nhiều nơi, Tấm thân hiến trọn cho người, Sang hèn chẳng chê chuộng, giúp người chẳng quản công.",
+    "answer": "Cây kim"
+  },
+  {
+    "category": "Con vật",
+    "question": "Bốn chân đạp đất từ bi, Đã ăn chén sứ, ngại chi chén sành.",
+    "answer": "Tủ đựng chén bát"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cây khô một lá bốn năm cành, Đường đi khúc khuỷu nhọc tay anh, Gặp kẻ tiểu nhân buồn chẳng nói, Chờ người quân tử mới dương danh.",
+    "answer": "Cây đàn"
+  },
+  {
+    "category": "Con vật",
+    "question": "Lịch nào dài nhất?",
+    "answer": "Lịch sử"
+  },
+  {
+    "category": "Con vật",
+    "question": "Xã đông nhất là xã nào?",
+    "answer": "Xã hội"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con đường dài nhất là đường nào?",
+    "answer": "Đường đời"
+  },
+  {
+    "category": "Con vật",
+    "question": "Quần rộng nhất là quần gì?",
+    "answer": "Quần đảo"
+  },
+  {
+    "category": "Con vật",
+    "question": "Hạt gieo tới tấp, Rãi đều khắp ruộng đồng, Nhưng hạt gieo chẳng nảy mầm, Để bao hạt khác mừng thầm mọc xanh.",
+    "answer": "Hạt mưa"
+  },
+  {
+    "category": "Con vật",
+    "question": "Trên hang đá, dưới hang đá, Giữa có con cá thờn bơn.",
+    "answer": "Cái miệng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Đường ngay thông thống, Hai cống hai bên, Trên hàng gương, Dưới hàng lược.",
+    "answer": "Bộ mặt"
+  },
+  {
+    "category": "Con vật",
+    "question": "Hai cô nằm nghỉ hai phòng, Ngày thì mở cửa ra trông, Đêm thì đóng cửa lấp trong ra ngoài.",
+    "answer": "Đôi mắt"
+  },
+  {
+    "category": "Con vật",
+    "question": "Năm ông cùng ở một nhà, Tình huynh nghĩa đệ vào ra thuận hòa, Bốn ông tuổi đã lên ba, Một ông đã già mới lại lên hai.",
+    "answer": "Bàn tay"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa bằng quả bí, nhi nhí những hột.",
+    "answer": "Nồi cơm"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa cứng vừa đen dài một thước, Một đầu toe toét một đầu tròn, Lên xuống vào ra nhờ tay búa, Dẫu rằng chắc mấy cũng phải thua.",
+    "answer": "Cái mai"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vô thủ, vô vỉ, vô nhĩ, vô tâm, Gốc ở sơn lâm, Hay ăn thịt sống.",
+    "answer": "Cái thớt"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vuông vuông cửa đóng 2 đầu, 100 thằng chệt lần hồi chui ra, Thằng nào không mũ thì tha, Thằng nào có mũ đem ra đốt đầu.",
+    "answer": "Bao diêm"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vốn dòng ái quốc sưa nay, Mà lòng giữ nước khi đầy khi vơi.",
+    "answer": "Bình nước"
+  },
+  {
+    "category": "Con vật",
+    "question": "Đầu đuôi vuông vắn như nhau, Thân chia nhiều đốt rất mau rất đều, Tính tình chân thức đáng yêu, Muốn biết dài ngắn mọi điều có em?",
+    "answer": "Cái thước kẻ"
+  },
+  {
+    "category": "Con vật",
+    "question": "Đầu vuông đuôi vắn như nhau, thân chia nhiều đốt, dài ngắn đều đều.",
+    "answer": "Cái thước kẻ"
+  },
+  {
+    "category": "Con vật",
+    "question": "Cày trên đồng ruộng trắng phau, Khát xuống uống nước giếng sâu đen ngòm?",
+    "answer": "Cái bút mực"
+  },
+  {
+    "category": "Con vật",
+    "question": "Hè về áo đỏ như son, Hè đi thay lá xanh non mượt mà, Bao nhiêu tay tỏa rộng ra, Như vẫy như đón bạn ta đến trường?",
+    "answer": "Cây phượng"
+  },
+  {
+    "category": "Con vật",
+    "question": "Da trắng muốt, Ruột trắng tinh, Bạn với học sinh, Thích cọ đầu vào bảng?",
+    "answer": "Viên phấn"
+  },
+  {
+    "category": "Con vật",
+    "question": "Anh mặt đen, anh da trắng, Anh mình mỏng, anh nhọn đầu, Khác nhau mà rất thân nhau, Khi đi khi ở chẳng bao giờ rời?",
+    "answer": "Bảng và phấn / Giấy và bút"
+  },
+  {
+    "category": "Con vật",
+    "question": "Thân hình thì chết đã lâu, Mà hai con mắt, bộ râu hãy còn.",
+    "answer": "Gốc tre khô"
+  },
+  {
+    "category": "Con vật",
+    "question": "Con đánh mẹ, Mẹ van làng. Đến khi làng ra, Con chui bụng mẹ!.",
+    "answer": "Cái dùi và cái mõ"
+  },
+  {
+    "category": "Con vật",
+    "question": "Trâu ăn trên đỉnh, trâu no. Bò ăn dưới đỉnh, bò đói. Nước chảy quanh suối, Trâu đói bò no.",
+    "answer": "Cối xay bột"
+  },
+  {
+    "category": "Con vật",
+    "question": "Vừa bằng cái nong, Cả làng đong chả hết.",
+    "answer": "Cái giếng nước"
+  },
+  {
+    "category": "Con vật",
+    "question": "Da cóc mà bọc bột lọc, Bột lọc mà bọc trứng gà, Bổ ra thơm phức cả nhà muốn ăn.",
+    "answer": "Quả mít"
+  },
+  {
+    "category": "Con vật",
+    "question": "Da cóc mà bọc bột lọc, Bột lọc mà bọc hòn than.",
+    "answer": "Quả nhãn"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Trên vì nước, dưới vì nhà, Lòng này ai tỏ cho ta hỡi trời.",
+    "answer": "Cái máng nước"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Vừa bằng cái đục đạc, Trong nạc ngoài xương, Thành thọ vô cương, Trong xương ngoài nạc.",
+    "answer": "Quả ổi"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Lá chi không cội không cành, Chỉ có 1 lá, ta mình trao tay.",
+    "answer": "Lá thư"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Ruột chấm vừng đen, Ăn vào mà xem, Vừa mát vừa bổ.",
+    "answer": "Quả thanh long"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Có chân mà chẳng biết đi, Quanh năm suốt tháng đứng ì một nơi.",
+    "answer": "Cái giường"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cây gì nho nhỏ, Hạt nó nuôi người, Chín vàng nơi nơi, Dân làng đi hái.",
+    "answer": "Cây lúa"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Anh ngồi đâu em cũng ngồi hầu, Yêu em anh mới mớm trầu cho em.",
+    "answer": "Cái ống nhổ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bằng cái đĩa, xỉa xuống ao, Ba mai chín cuốc mà đào không lên.",
+    "answer": "Bóng mặt trăng, mặt trời"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Có răng mà chẳng có mồm, Nhai cỏ nhồ n nhồ n cơm chẳng chịu ăn.",
+    "answer": "Cái liềm"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Vừa bằng một ôm, Không đầu có cổ không mồm có răng.",
+    "answer": "Cái nơm"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bốn chân ngược, Bốn chân xuôi, Sáu tai, sáu mắt, một đuôi, ba đầu.",
+    "answer": "2 người khiêng lợn"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Lúa nào là lúa ba năm không chín?",
+    "answer": "Lúa tạp giao 3509"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Hoa gì quả quyện với trầu, Để cho câu chuyện mở đầu nên duyên?",
+    "answer": "Hoa cau"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Quả gì ăn chẳng được nhiều, Nhưng mà nhìn thấy, bao nhiêu người thèm?",
+    "answer": "Quả chanh"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Thân dài lưỡi cứng là ta, Hữu thủ vô túc, đố là cái chi?",
+    "answer": "Cái cuốc"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Mình như quả cà sứt tai, Đàng Trong thì có, Đàng Ngoài thì không.",
+    "answer": "Bánh trôi"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái trống mà thủng hai đầu, Bên ta thì có, bên Tàu thì không.",
+    "answer": "Cái váy"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Khi nhỏ, em mặc áo xanh, Khi lớn bằng anh, em thay áo đỏ.",
+    "answer": "Quả ớt"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì bao phủ khắp nơi, Không mùi không sắc mà ai cũng cần?",
+    "answer": "Không khí"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Một chắc mà giữ hai nhà, Chị em không có, ruột rà cũng không.",
+    "answer": "Máng xối"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đầu là sắt, đuôi là gỗ, Không có nó, củi không thành.",
+    "answer": "Cái búa bổ củi"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Có chân mà chẳng biết đi, Có mặt phẳng lì cho kẻ ngồi trên. Tôi có 4 cái chân, 1 cái lưng, nhưng không có cơ thể.",
+    "answer": "Cái ghế"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Vừa bằng trái cau, Lau chau đi trước.",
+    "answer": "Ngón chân cái"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cây lum tum, lá loe toe, Mùa đông úp lại, mùa hè nở ra.",
+    "answer": "Cây sen"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Lá xanh, cành đỏ, hoa vàng, Hạt đen, rễ trắng; đố chàng cây chi?",
+    "answer": "Rau sam"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Con gì cánh mỏng, đuôi dài, Lúc bay lúc đậu cánh thời đều giương?",
+    "answer": "Con chuồn chuồn"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Không ăn mà mổ cuống cuồng, Mệt nhoài đứng chống, ra tuồng dửng dưng.",
+    "answer": "Cái chày đạp giã gạo"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cây khô mà nở được hoa, Đậu được một quả, khi già khi non.",
+    "answer": "Cái cân xách"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Chặt không đứt, Bứt không rời, Phơi không khô, Chụm không đỏ.",
+    "answer": "Nước"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đi nhăn răng, về nhăn răng, Ai bảo cái bừa, Xin thưa đúng mà chưa đúng!.",
+    "answer": "Cái cào cỏ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì không có trống, chỉ có mái, Cả đời chỉ đái, không biết ị.",
+    "answer": "Mái nhà"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đem thân che nắng cho đời, Rồi ra mang tiếng là người chả khôn?",
+    "answer": "Mành che cửa"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Lá gì ăn sống thì lành, nấu canh thì độc?",
+    "answer": "Lá trầu"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Mẹ vuông, con tròn, Mỗi lứa sòn sòn, Đẻ 20 đứa.",
+    "answer": "Bao thuốc lá"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Tên em không thiếu không thừa, Tấm lòng vàng ngọt, ngon vừa lòng anh.",
+    "answer": "Quả đu đủ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cây chi nhánh sắt, cội ngà, Đố chàng nho sĩ biết là cây chi?",
+    "answer": "Cây ô"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Ở nhà có một bà ăn cơm hớt.",
+    "answer": "Đôi đũa cả"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Có đầu mà chẳng có đuôi, Có một khúc giữa cứng ruôi lại mềm.",
+    "answer": "Đòn gánh"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đuôi thì chẳng thấy, mà có hai đầu.",
+    "answer": "Cây cầu"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì không có chân, không có đuôi, không có cơ thể mà có nhiều đầu?",
+    "answer": "Cầu truyền hình"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Thứ gì mỗi ngày phải gỡ ra mới có công dụng?",
+    "answer": "Lịch treo tường"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì luôn chạy không chờ ta bao giờ. Nhưng chúng ta vẫn có thể đứng một chỗ để chờ nó?",
+    "answer": "Đồng hồ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì khi xài thì quăng đi, nhưng khi không xài thì lấy lại?",
+    "answer": "Mỏ neo và lưỡi câu"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Một xương sống, một đống xương sườn là cái gì?",
+    "answer": "Cái lược"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Có cổ nhưng không có miệng là cái gì?",
+    "answer": "Cái áo"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đi thì đứng, đứng thì ngã.",
+    "answer": "Xe đạp"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Thảm gì mà không có bất kỳ ai muốn bước lên?",
+    "answer": "Thảm họa"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Mặc áo xanh, đội nón xanh. Đi quanh một vòng. Mặc áo trắng, đội nón trắng!.",
+    "answer": "Quả cau khi róc vỏ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đường ngay thông thống, Hai cống hai bên, Trên hàng gương, Dưới hàng lược.",
+    "answer": "Cái mặt"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đêm đêm làm bạn với đèn, Giúp người quân tử khỏi hèn chí cao? Thứ gì có lời nhưng không bao giờ nói?",
+    "answer": "Quyển sách"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bánh tên hoa ở trên rừng, Sống bằng gió, đất, đá cao, lắm màu?",
+    "answer": "Bông lan"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Một vật có ruột chấm vừng đen, khi ăn vào mát và bổ.",
+    "answer": "Quả dứa"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Một vật mà anh ngồi đâu, em cũng ngồi hầu. Anh mới mớm trầu cho em.",
+    "answer": "Cái ống hút"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Một vật có hình dạng tròn vành vạnh, nước lạnh như tiền. Con gái như tiên, trần mình xuống lội.",
+    "answer": "Bể nước"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Một vật có hình dạng nhỏ xíu, đầu nhọn như kim. Khi chạm vào da, có thể gây đau đớn.",
+    "answer": "Gai"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Tám thằng dân vần cục đá tảng, Hai ông xã xách nạng chạy theo.",
+    "answer": "Hòn đá"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Củ gì da cam, Thịt lại giòn giòn, Ăn thì ngon lắm, Lại sáng mắt cơ?",
+    "answer": "Củ cà rốt"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Củ tròn như cái bát, Áo màu xanh non, Quanh thân có lá, Xào nấu rất ngon, Tên như tiêu được.",
+    "answer": "Củ xu hào (su hào)"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bỏ ngoài nướng trong, ăn ngoài bỏ trong.",
+    "answer": "Bắp ngô"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đen khi bạn mua nó, đỏ khi dùng nó và xám xịt khi vứt nó đi?",
+    "answer": "Than"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Hai lưỡi không răng, mà nhai giấy vải băng băng lạ kỳ.",
+    "answer": "Kéo"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bật sáng trong đêm, giúp nhà dưới, nhà trên sáng ngời.",
+    "answer": "Bóng đèn"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Kết bằng sợi đay, đung đưa cho bé ngủ say trưa hè.",
+    "answer": "Võng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Lá gì mọc ở trong người, mà gồm hai chiếc rành rành hai bên?",
+    "answer": "Lá phổi"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Khua môi múa mép, nếm ngọt bùi đủ mùi, không ăn vẫn biết? Cái gì của người con gái lúc nào cũng ẩm ướt?",
+    "answer": "Cái lưỡi"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Nhỏ trong nhà, tím đen vàng đỏ, mẹ pha nước đường?",
+    "answer": "Quả nho"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Tròn, vỏ đỏ, thơm ngon, miền lạnh yêu thích?",
+    "answer": "Quả táo"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Thân dài cong tựa vầng trăng, ngọt lịm, mềm dẻo?",
+    "answer": "Quả chuối"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Ruột đỏ, nhiều hạt đen, ăn ngọt lịm?",
+    "answer": "Quả dưa hấu"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Trùng tên con vật, ăn chua ngọt, phổ biến miền Nam?",
+    "answer": "Quả cóc"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Ôm lấy nỗi niềm, vừa thơm vừa buồn?",
+    "answer": "Quả sầu riêng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Tôi có nhiều răng nhưng không cắn, tôi giúp bạn làm đẹp hàng ngày.",
+    "answer": "Cái lược"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đứng im mà vẫn chạy?",
+    "answer": "Cái quạt máy"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Không có cửa nhưng lại chứa được cả thế giới?",
+    "answer": "Nhà mạng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Khi bạn có nó, bạn sẽ muốn chia sẻ, nhưng khi chia sẻ, bạn sẽ không còn nó nữa?",
+    "answer": "Bí mật"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Có sáu khuôn mặt nhưng không thể trang điểm, có hai mươi mốt mắt nhưng không thể nhìn thấy?",
+    "answer": "Xúc xắc"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Thứ gì có thể bay lên trời mà không cần cánh?",
+    "answer": "Khinh khí cầu"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì có thể 'rơi' nhưng không bao giờ chạm đất?",
+    "answer": "Nhiệt độ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Món gì không ăn được nhưng ai cũng thích ăn?",
+    "answer": "Ăn ảnh"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì có thể lấp đầy một căn phòng nhưng lại không chiếm không gian của căn phòng?",
+    "answer": "Ánh sáng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Củ gì khi càng già lại càng cay?",
+    "answer": "Củ gừng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì mà càng nhiều thì càng nhẹ đi?",
+    "answer": "Lỗ hổng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Củ gì có thể làm bạn khóc?",
+    "answer": "Củ hành tây"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Nhà nào lạnh lẽo nhưng ai cũng muốn tới?",
+    "answer": "Nhà băng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Tôi chu du khắp thế giới mà tôi vẫn ở nguyên một chỗ.",
+    "answer": "Tem thư"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Xe nào không bao giờ giảm đi?",
+    "answer": "Xe tăng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Đồng gì mà đa số ai cũng thích?",
+    "answer": "Đồng tiền"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì càng cất lại càng thấy?",
+    "answer": "Cất nhà"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Sữa gì khi uống không được đứng yên 1 chỗ?",
+    "answer": "Sữa lắc"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Túi gì nghe tên tưởng ngọt, hoá ra đắng ngắt khó lọt khỏi người?",
+    "answer": "Túi mật"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Con người hay dùng vật này để đánh chính mình. Đánh cha, đánh má, đánh anh, đánh chị, đánh em?",
+    "answer": "Bàn chải đánh răng"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Hồ gì phụ nữ có chồng rất ghét?",
+    "answer": "Hồ ly tinh"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bánh gì nghe tên đã thấy sung sướng?",
+    "answer": "Bánh Khoái"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bánh gì nghe tên đã thấy đau?",
+    "answer": "Bánh Tét"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Dài như trái chuối, cầm 1 lúc thì nó chảy nước ra?",
+    "answer": "Que kem"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Càng chơi càng ra nước?",
+    "answer": "Cờ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Làm sao để cái cân tự cân chính nó?",
+    "answer": "Đặt một vật có trọng lượng bằng 0 lên cân"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Nước giải khát nào chứa sắt và canxi?",
+    "answer": "Cafe (chữ Fe là ký hiệu của Sắt, chữ Ca là ký hiệu của Canxi)"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì người mua biết, người bán biết, người xài không bao giờ biết?",
+    "answer": "Quan tài"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cầm trên tay một cây thước và một cây bút, làm thế nào để bạn vẽ được một vòng tròn thật chính xác?",
+    "answer": "Dùng compa (thước và bút là hai bộ phận của compa)"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì có nhà, có đường, không có người? Khi nào người ta có thể mang cả đại dương vào nhà?",
+    "answer": "Bản đồ"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Thân em xưa ở bụi tre. Mùa đông xếp lại mùa hè mở ra.",
+    "answer": "Cây quạt giấy"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Con gì có thịt không xương. Đằm trong nắng dãi, mưa tuôn chẳng nề. Hiên ngang đọ sức thủy tề. Giữ cho đồng ruộng bốn bề xanh tươi.",
+    "answer": "Con đê"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Trong trắng.",
+    "answer": "Bánh chưng (ý chỉ phần nếp trắng bên trong)"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Làm thế nào để không đụng phải ngón tay khi bạn đập búa vào một cái móng tay?",
+    "answer": "Cầm móng tay bằng kìm"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì bạn không mượn mà trả?",
+    "answer": "Lời cám ơn"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì luôn đi đến mà không bao giờ đến nơi?",
+    "answer": "Ngày mai"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Cái gì luôn ở phía trước bạn, mà bạn không bao giờ nhìn thấy?",
+    "answer": "Tương lai"
+  },
+  {
+    "category": "Đố mẹo hay",
+    "question": "Bánh gì ăn ít mà nhiều?",
+    "answer": "Bánh đa (mỏng, nhiều cái)"
+  }
+]

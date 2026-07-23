@@ -31,6 +31,10 @@ from typing import List, Dict, Any, Set, Optional
 _HERMES_CORE_TOOLS = [
     # Web
     "web_search", "web_extract",
+    # XSMB
+    "get_xsmb", "predict_xsmb",
+    # TKB
+    "get_tkb",
     # Terminal + process management
     "terminal", "process",
     # Desktop GUI affordances: read the embedded terminal pane, close an agent's

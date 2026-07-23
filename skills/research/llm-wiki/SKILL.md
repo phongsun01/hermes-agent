@@ -35,13 +35,19 @@ Use this skill when the user:
 
 ## Wiki Location
 
-**Location:** Set via `WIKI_PATH` environment variable (e.g. in `${HERMES_HOME:-~/.hermes}/.env`).
+**Location:** Set via `WIKI_PATH` environment variable (e.g. in `~/.hermes/.env`).
 
 If unset, defaults to `~/wiki`.
 
 ```bash
 WIKI="${WIKI_PATH:-$HOME/wiki}"
 ```
+
+### Specific Wiki Instances
+
+- **law-bidding-wiki-v2**:
+  - **Location**: `d:\Antigravity\law-wiki-bidding-v2`
+  - **Instructions**: When querying or interacting with this wiki, the agent **MUST** read and follow the specific guidelines (such as citation formats, query process, rules) detailed in [docs/SKILL.md](file:///d:/Antigravity/Hermes/docs/SKILL.md).
 
 The wiki is just a directory of markdown files — open it in Obsidian, VS Code, or
 any editor. No database, no special tooling required.
