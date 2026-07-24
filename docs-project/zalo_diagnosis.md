@@ -247,3 +247,46 @@ docker compose stop gateway; docker compose start gateway
 ### Cách fix
 - Kiểm tra lại backend AI đang chạy (ví dụ: LM Studio, Ollama, vLLM hoặc container AI tương ứng) đang map port 20128.
 - Chạy LLM server lên, bot Zalo sẽ phản hồi bình thường.
+
+---
+
+## Sự cố 8: ZaloAdapter.connect() got an unexpected keyword argument 'is_reconnect' (23/07/2026)
+
+### Triệu chứng
+- Gateway khởi động lên báo lỗi:
+  ```
+  ERROR gateway.run: ✗ zalo error: ZaloAdapter.connect() got an unexpected keyword argument 'is_reconnect'
+  ```
+- Kết nối tới Zalo bị dừng và liên tục thử lại (reconnect loop) nhưng thất bại.
+
+### Nguyên nhân gốc
+- Phiên bản core `hermes-agent` mới cập nhật truyền thêm đối số `is_reconnect` khi gọi hàm `connect()` trên các platform adapter.
+- File plugin custom `ZaloAdapter` (`~/.hermes/plugins/zalo/adapter.py`) có hàm `connect()` với signature cũ `async def connect(self) -> bool:` không chấp nhận đối số này.
+
+### Cách fix
+- Sửa signature của hàm `connect` trong `~/.hermes/plugins/zalo/adapter.py` để chấp nhận mọi đối số động:
+  ```python
+  async def connect(self, *args, **kwargs) -> bool:
+  ```
+- Khởi động lại container `gateway`.
+
+---
+
+## Sự cố 9: Lỗi kết nối lặp lại 'listener disconnected 1000 NORMAL_CLOSURE' (23/07/2026)
+
+### Triệu chứng
+- Bridge Zalo và watchdog liên tục chuyển đổi trạng thái: `CONNECTED -> CATCHUP -> DISCONNECTED -> CONNECTED` chỉ trong vài giây.
+- Log báo lỗi kết nối đóng sạch từ phía Zalo server: `listener disconnected 1000 NORMAL_CLOSURE`.
+- Zalo bot không phản hồi tin nhắn `ping`.
+
+### Nguyên nhân gốc
+- Zalo giới hạn nghiêm ngặt chỉ cho phép một kết nối hoạt động tại một thời điểm cho một tài khoản.
+- Trên máy host Windows đang chạy nhiều tiến trình Node.js ngầm của Zalo bridge cùng kết nối tới một tài khoản, dẫn đến việc các tiến trình tranh chấp và liên tục "đá" nhau ra.
+
+### Cách fix
+1. Tắt toàn bộ CMD/Terminal chạy Zalo bridge hoặc watchdog.
+2. Dọn dẹp sạch các tiến trình Node chạy ngầm trên Windows Host qua PowerShell:
+   ```powershell
+   Stop-Process -Name node -Force
+   ```
+3. Khởi chạy lại duy nhất một tiến trình watchdog/bridge.
