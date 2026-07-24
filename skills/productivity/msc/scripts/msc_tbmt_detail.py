@@ -8,7 +8,9 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-LOOKUP_SCRIPT = "scripts/msc_ib_lookup.py"
+import os
+from pathlib import Path
+LOOKUP_SCRIPT = str(Path(__file__).parent / "msc_ib_lookup.py")
 BASE = "https://muasamcong.mpi.gov.vn"
 
 # Tab 1: Thông báo mời thầu
@@ -157,9 +159,11 @@ def map_bid_field(code: Any) -> str:
 
 
 def run_lookup(token: str, ib: str, cookie: str = "") -> Dict[str, Any]:
-    cmd = ["python3", LOOKUP_SCRIPT, "--token", token, "--ib", ib]
+    if token:
+        os.environ["MSC_SESSION_TOKEN"] = token
     if cookie:
-        cmd += ["--cookie", cookie]
+        os.environ["MSC_COOKIE"] = cookie
+    cmd = ["python3", LOOKUP_SCRIPT, "--ib", ib]
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=80)
     raw = (p.stdout or "").strip()
     try:

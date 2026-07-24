@@ -8,7 +8,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-DETAIL_SCRIPT = "scripts/msc_tbmt_detail.py"
+DETAIL_SCRIPT = str(Path(__file__).parent / "msc_tbmt_detail.py")
 
 
 def valid_ib(s: str) -> bool:
@@ -27,9 +27,11 @@ def safe_filename(ib: str, payload: dict) -> str:
 
 
 def run_detail(ib: str, token: str, cookie: str = "") -> dict:
-    cmd = ["python3", DETAIL_SCRIPT, "--ib", ib, "--token", token]
+    if token:
+        os.environ["MSC_SESSION_TOKEN"] = token
     if cookie:
-        cmd += ["--cookie", cookie]
+        os.environ["MSC_COOKIE"] = cookie
+    cmd = ["python3", DETAIL_SCRIPT, "--ib", ib]
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     raw = (p.stdout or "").strip()
     try:
@@ -41,17 +43,46 @@ def run_detail(ib: str, token: str, cookie: str = "") -> dict:
 def main():
     ap = argparse.ArgumentParser(description="Export TBMT by IB to markdown (v3)")
     ap.add_argument("--ib", required=True)
-    ap.add_argument("--token", required=True)
-    ap.add_argument("--cookie", default="")
+    ap.add_argument("--token", default="", help="MSC API bearer token")
+    ap.add_argument("--cookie", default="", help="MSC Cookie")
     ap.add_argument("--out-root", default=str(Path(__file__).parent.parent / "reports/msc/tbmt"))
     args = ap.parse_args()
+
+    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_BEARER_TOKEN") or ""
+    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+
+    # Try loading from .env if still empty (backward compatibility)
+    if not token or not cookie:
+        paths = [
+            Path(__file__).parent / ".env",
+            Path(__file__).parent.parent / ".env",
+            Path.home() / ".hermes" / ".env",
+        ]
+        for p in paths:
+            if p.exists():
+                try:
+                    for raw in p.read_text(encoding="utf-8").splitlines():
+                        line = raw.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        if k == "MSC_SESSION_TOKEN" and not token:
+                            token = v.strip().strip('"').strip("'")
+                        elif k == "MSC_COOKIE" and not cookie:
+                            cookie = v.strip().strip('"').strip("'")
+                except Exception:
+                    pass
+
+    if not token:
+        print(json.dumps({"status": "error", "message": "Missing MSC API token. Configure in env or .env file."}, ensure_ascii=False))
+        return
 
     ib = (args.ib or "").strip().upper()
     if not valid_ib(ib):
         print(json.dumps({"status": "invalid_ib", "message": "Usage: /expt IBxxxxxxxx"}, ensure_ascii=False))
         return
 
-    detail = run_detail(ib, args.token, cookie=args.cookie)
+    detail = run_detail(ib, token, cookie=cookie)
     st = detail.get("status")
 
     if st in ("invalid_ib", "not_found", "login_error"):

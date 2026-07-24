@@ -61,9 +61,22 @@ def payload_for(noti: str, day: datetime) -> Dict[str, Any]:
     return [p]
 
 
+def _escape_config_value(val: str) -> str:
+    # Order of replace is critical: escape backslash first, then escape double quotes, then strip newlines
+    return val.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "").replace("\r", "")
+
+
 def fetch_total(token: str, noti: str, day: datetime, cookie: str = '') -> int:
     url = f"{BASE}{ENDPOINT}?token={token}"
     body = json.dumps(payload_for(noti, day), ensure_ascii=False)
+
+    config_lines = [
+        f'url = "{_escape_config_value(url)}"'
+    ]
+    if cookie:
+        config_lines.append(f'header = "Cookie: {_escape_config_value(cookie)}"')
+
+    config_str = "\n".join(config_lines) + "\n"
 
     cmd = [
         'curl', '-sS', '-L', '--max-time', '45',
@@ -72,12 +85,11 @@ def fetch_total(token: str, noti: str, day: datetime, cookie: str = '') -> int:
         '-H', 'Content-Type: application/json',
         '-H', f'Origin: {BASE}',
         '-H', f'Referer: {BASE}/web/guest/contractor-selection',
+        '--data-raw', body,
+        '--config', '-'
     ]
-    if cookie:
-        cmd += ['-H', f'Cookie: {cookie}']
-    cmd += ['--data-raw', body, url]
 
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    p = subprocess.run(cmd, input=config_str, capture_output=True, text=True, timeout=60)
     if p.returncode != 0:
         raise RuntimeError(p.stderr.strip() or f'curl failed: {p.returncode}')
 
@@ -103,12 +115,43 @@ def fetch_total(token: str, noti: str, day: datetime, cookie: str = '') -> int:
 
 
 def main():
+    import os
+    from pathlib import Path
     ap = argparse.ArgumentParser(description="Query hidden smart/search endpoint for KHLCNT/TBMT counts")
-    ap.add_argument("--token", required=True, help="reCAPTCHA token from active browser session")
+    ap.add_argument("--token", default="", help="MSC API bearer token")
     ap.add_argument("--date", default="today", help="today|yesterday|YYYY-MM-DD")
     ap.add_argument("--noti", choices=["khlcnt", "tbmt"], required=True)
     ap.add_argument("--cookie", default="", help="Optional Cookie header if needed")
     args = ap.parse_args()
+
+    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_BEARER_TOKEN") or ""
+    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+
+    # Try loading from .env if still empty (backward compatibility)
+    if not token or not cookie:
+        paths = [
+            Path(__file__).parent / ".env",
+            Path(__file__).parent.parent / ".env",
+            Path.home() / ".hermes" / ".env",
+        ]
+        for p in paths:
+            if p.exists():
+                try:
+                    for raw in p.read_text(encoding="utf-8").splitlines():
+                        line = raw.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        if k == "MSC_SESSION_TOKEN" and not token:
+                            token = v.strip().strip('"').strip("'")
+                        elif k == "MSC_COOKIE" and not cookie:
+                            cookie = v.strip().strip('"').strip("'")
+                except Exception:
+                    pass
+
+    if not token:
+        print(json.dumps({"status": "error", "message": "Missing MSC API token. Configure in env or .env file."}, ensure_ascii=False))
+        return
 
     now = datetime.now(TZ7)
     if args.date == "today":
@@ -118,7 +161,7 @@ def main():
     else:
         day = datetime.strptime(args.date, "%Y-%m-%d").replace(tzinfo=TZ7)
 
-    total = fetch_total(args.token, args.noti, day, args.cookie)
+    total = fetch_total(token, args.noti, day, cookie)
     out = {
         "noti": args.noti,
         "date": day.strftime("%Y-%m-%d"),

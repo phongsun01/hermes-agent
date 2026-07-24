@@ -1238,7 +1238,7 @@ def _run_direct_command(raw_text: str) -> dict | None:
             data = _run_json([
                 'python3', str(SCRIPTS_DIR / 'msc_contractor_analysis.py'),
                 '--org-code', org_code,
-            ] + (['--token', token] if token else []))
+            ])
             
             status = data.get('status', 'ok')
             if status != 'ok':

@@ -9,7 +9,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
-LOOKUP_SCRIPT = "scripts/msc_pl_lookup.py"
+import os
+from pathlib import Path
+LOOKUP_SCRIPT = str(Path(__file__).parent / "msc_pl_lookup.py")
 BASE = "https://muasamcong.mpi.gov.vn"
 URL_DETAIL_KHLCNT = "/o/egp-portal-contractor-selection-v2/services/expose/lcnt/bid-po-bidp-plan-project-view/get-by-id"
 URL_DETAIL_BID_KHLCNT = "/o/egp-portal-contractor-selection-v2/services/lcnt/bid-po-bidp-plan-project-view/get-bidp-plan-detail-by-id"
@@ -157,9 +159,11 @@ def parse_json_maybe(v: Any) -> Dict[str, Any]:
 
 
 def run_lookup(token: str, pl: str, cookie: str = "") -> Dict[str, Any]:
-    cmd = ["python3", LOOKUP_SCRIPT, "--token", token, "--pl", pl]
+    if token:
+        os.environ["MSC_SESSION_TOKEN"] = token
     if cookie:
-        cmd += ["--cookie", cookie]
+        os.environ["MSC_COOKIE"] = cookie
+    cmd = ["python3", LOOKUP_SCRIPT, "--pl", pl]
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=80)
     raw = (p.stdout or "").strip()
     try:

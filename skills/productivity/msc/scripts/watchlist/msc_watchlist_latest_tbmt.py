@@ -29,7 +29,6 @@ def parse_dt(s: str):
 def get_top_tbmt(unit_id: str, field: str):
     cmd = [
         'python3', LIST_SCRIPT,
-        '--token', '',
         '--kind', 'tbmt',
         '--unit-id', unit_id,
         '--entity-field', field,
