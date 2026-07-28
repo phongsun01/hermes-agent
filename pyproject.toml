@@ -139,6 +139,8 @@ dependencies = [
   "concurrent-log-handler==0.9.29; sys_platform == 'win32'",
   # Playwright for browser automation (e.g., Vietnam Gov portal integrations / congchuc skill)
   "playwright==1.61.0",
+  # Excel file reading/writing (e.g., Export Excel CV den script / office processing skills)
+  "openpyxl==3.1.5",
 ]
 
 [project.optional-dependencies]

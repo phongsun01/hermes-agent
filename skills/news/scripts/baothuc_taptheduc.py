@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Thêm đường dẫn để import lunar_convert từ skill news
 current_dir = Path(__file__).resolve().parent
-for p in [str(current_dir), "/opt/hermes/scripts", "/opt/hermes/scripts/news", "D:/Antigravity/Hermes/scripts/news", "/opt/hermes/scripts/zalo"]:
+for p in [str(current_dir), "/opt/data/skills/news/scripts", "/opt/hermes/scripts", "/opt/hermes/scripts/news", "D:/Antigravity/Hermes/scripts/news", "/opt/hermes/scripts/zalo"]:
     if os.path.exists(p) and p not in sys.path:
         sys.path.append(p)
 
@@ -64,13 +64,16 @@ try:
 except Exception:
     weather_str = "Không lấy được thông tin thời tiết."
 
+comm_instruction = ""
+if comm_str:
+    comm_instruction = f"\n   - Kỷ niệm hôm nay: {comm_str} (BẮT BUỘC: Hãy đưa thông tin ngày kỷ niệm này vào tin nhắn với giọng điệu trang trọng và ý nghĩa phù hợp ở phần đầu hoặc phần giữa)."
+
 print(f"""Hãy đóng vai một trợ lý gia đình vui vẻ. Viết một tin nhắn báo thức buổi sáng lúc 6:30.
 Yêu cầu:
 1. Chào buổi sáng gia đình.
 2. Cung cấp thông tin ngày hôm nay:
    - Âm lịch: {lunar_str}
-   - Thời tiết: {weather_str}
-   - Kỷ niệm (nếu có, không có thì bỏ qua): {comm_str}
+   - Thời tiết: {weather_str}{comm_instruction}
 3. Nhắc từng người theo các ý chính sau một cách sáng tạo, KHÔNG lặp lại y hệt mỗi ngày:
    - Sếp Phong: Xuống giường, vươn vai, hít thở sáng.
    - Chị Huế tồ: Dậy tập Yoga / đi bộ buổi sáng.
