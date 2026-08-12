@@ -523,13 +523,17 @@ def auto_register_tkb_cron():
             exists = False
             for job in jobs:
                 if job.get("id") == jdef["id"]:
-                    job["prompt"] = jdef["prompt"]
-                    job["schedule"] = jdef["schedule"]
-                    job["schedule_display"] = jdef["schedule_display"]
-                    job["deliver"] = jdef["deliver"]
-                    job["next_run_at"] = compute_next_run(jdef["schedule"])
+                    if (job.get("prompt") != jdef["prompt"] or
+                        job.get("schedule") != jdef["schedule"] or
+                        job.get("schedule_display") != jdef["schedule_display"] or
+                        job.get("deliver") != jdef["deliver"]):
+                        job["prompt"] = jdef["prompt"]
+                        job["schedule"] = jdef["schedule"]
+                        job["schedule_display"] = jdef["schedule_display"]
+                        job["deliver"] = jdef["deliver"]
+                        job["next_run_at"] = compute_next_run(jdef["schedule"])
+                        updated = True
                     exists = True
-                    updated = True
                     break
             if not exists:
                 jdef["next_run_at"] = compute_next_run(jdef["schedule"])
