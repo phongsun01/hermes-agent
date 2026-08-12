@@ -29,6 +29,10 @@ LƯU Ý BẮT BUỘC: Bạn CHỈ ĐƯỢC CHẠY các lệnh sau đây bằng t
 | `/cc hieudinh <số>` | Soát lỗi chính tả & tối ưu văn phong VB đến (`skills/cc/scripts/congchuc_editor.py --so-den <số> --zalo`) |
 | `/cc sualoi <đường_dẫn>` | Soát lỗi chính tả & tối ưu văn phong từ file Word (`skills/cc/scripts/congchuc_editor.py --file-path <đường_dẫn> --zalo`) |
 | `/cc vbdi <từ_khóa>` | Tìm kiếm văn bản đi theo từ khóa (`skills/cc/scripts/congchuc_vbdi_search.py <từ_khóa>`) |
+<<<<<<< Updated upstream
+=======
+| `/cc donxls <đường_dẫn>` | Làm sạch & chuẩn hóa file Excel (`/opt/xlvp/clean-data-xls/scripts/clean_xlsx.py --input <đường_dẫn> --yes`) |
+>>>>>>> Stashed changes
 | `/cc theodoi <số>` | Theo dõi 1 văn bản đi và báo cáo khi quét thấy (`cc_router theodoi <số>`) |
 | `/cc help` | In ra danh sách hướng dẫn lệnh cho người dùng |
 
@@ -90,7 +94,15 @@ LƯU Ý BẮT BUỘC: Bạn CHỈ ĐƯỢC CHẠY các lệnh sau đây bằng t
 - **Hành động**: Chạy lệnh: `uv run python /opt/data/skills/cc/scripts/congchuc_vbdi_search.py <từ_khóa>`
 - **Trả lời**: Báo tiến trình tìm kiếm, sau đó trả về danh sách kết quả tìm thấy theo định dạng danh sách có đánh số, in đậm số ký hiệu và có trích yếu + đơn vị soạn thảo.
 
+<<<<<<< Updated upstream
 ### 1.10 Lệnh `/cc help` (Hướng dẫn sử dụng)
+=======
+### 1.10 Lệnh `/cc donxls <đường_dẫn>` (Làm sạch file Excel)
+- **Hành động**: Chạy lệnh: `uv run python /opt/xlvp/clean-data-xls/scripts/clean_xlsx.py --input <đường_dẫn> --yes`
+- **Trả lời**: Báo cáo tóm tắt các lỗi được tìm thấy và đã sửa đổi, sau đó trả về đường dẫn file Excel đã được chuẩn hóa.
+
+### 1.11 Lệnh `/cc help` (Hướng dẫn sử dụng)
+>>>>>>> Stashed changes
 - **Hành động**: Trả lời ngay lập tức.
 - **Trả lời**: Hiển thị bảng tổng hợp danh sách các lệnh ở trên.
 
