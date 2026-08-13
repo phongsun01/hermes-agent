@@ -269,6 +269,36 @@ Khi cập nhật mã nguồn Hermes và build lại Docker image, Playwright có
 
 ---
 
+## 7. Lỗi `PermissionError: [Errno 13] Permission denied` khi chạy Cron job
+
+### Triệu chứng
+
+Cron job báo lỗi phân quyền khi ghi hoặc đọc file trạng thái/log (ví dụ: `vbden_state.json`):
+
+```
+PermissionError: [Errno 13] Permission denied: '/opt/data/cron/cong-van-den/vbden_state.json'
+```
+
+### Nguyên nhân
+
+Khi debug hoặc chạy thử thủ công các file script bằng lệnh `docker exec hermes python3 ...`, Docker sẽ thực thi lệnh với tư cách user `root`. Việc này dẫn đến các file trạng thái mới tạo hoặc được cập nhật bởi script sẽ thuộc sở hữu của `root:root` với quyền ghi hạn chế. 
+Sau đó, khi cron job của hệ thống tự động chạy ngầm dưới quyền user `hermes` (UID 10000), nó không có quyền ghi đè lên các file do root sở hữu này.
+
+### Cách sửa
+
+1. Đổi lại quyền sở hữu các file trong thư mục data về cho user `hermes`:
+   ```powershell
+   docker exec -u root hermes chown -R hermes:hermes /opt/data/cron/
+   ```
+   *(Thay đổi `/opt/data/cron/` thành đường dẫn cụ thể chứa file lỗi nếu cần thiết)*
+
+2. **Khuyến nghị phòng ngừa:** Khi chạy thử script thủ công qua `docker exec`, hãy luôn chỉ định chạy dưới quyền user `hermes` thay vì để mặc định:
+   ```powershell
+   docker exec -u hermes hermes python3 /opt/data/scripts/your_script.py
+   ```
+
+---
+
 ## Tóm tắt nhanh
 
 | # | Vấn đề | Nguyên nhân gốc | Fix |
@@ -279,5 +309,7 @@ Khi cập nhật mã nguồn Hermes và build lại Docker image, Playwright có
 | 4 | `COPY docker/wheels /tmp/wheels: not found` | Thư mục `docker/wheels` không được track bởi git | Tạo thư mục rỗng `docker/wheels` ở local và build lại |
 | 5 | `env file .env.lightrag not found` | File `.env.lightrag` bị gitignore | Khôi phục file cấu hình (dùng `docker inspect lightrag` nếu cần) |
 | 6 | `BrowserType.launch: Executable doesn't exist` | Nâng cấp Playwright nhưng chưa tải browser tương thích | Chạy `playwright install` và `playwright install-deps` trong container |
+| 7 | `PermissionError: [Errno 13] Permission denied` | Lệnh debug thủ công chạy dưới quyền `root` làm sai lệch quyền sở hữu file | Chạy `chown -R hermes:hermes` và khuyến nghị dùng `-u hermes` khi debug |
+
 
 
