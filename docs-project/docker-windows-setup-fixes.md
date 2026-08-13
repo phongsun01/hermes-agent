@@ -236,6 +236,39 @@ docker compose up -d
 
 ---
 
+## 6. Lỗi `BrowserType.launch: Executable doesn't exist` (Playwright thiếu Browser/Dependencies)
+
+### Triệu chứng
+
+Các cron job sử dụng Playwright (ví dụ quét công văn) bị lỗi và dừng:
+
+```
+[INFO] Playwright unavailable, falling back to urllib: Lỗi Playwright (after 2 attempts): BrowserType.launch: Executable doesn't exist at /opt/hermes/.playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell
+Please run the following command to download new browsers: playwright install
+```
+
+Hoặc lỗi thiếu system dependencies:
+```
+Host system is missing dependencies to run browsers. Please install them with the following command: playwright install-deps
+```
+
+### Nguyên nhân
+
+Khi cập nhật mã nguồn Hermes và build lại Docker image, Playwright có thể được nâng cấp lên phiên bản mới hơn. Phiên bản mới sẽ yêu cầu các bản build browser (Chromium, Firefox...) tương ứng. Tuy nhiên, do thư mục chứa browser (`/opt/hermes/.playwright`) nằm trong volume hoặc không được đóng gói sẵn trong image nên browser mới chưa được tải về máy ảo.
+
+### Cách sửa
+
+1. Chạy lệnh cài đặt lại các browser tương thích của Playwright bên trong container `hermes`:
+   ```powershell
+   docker exec hermes /opt/hermes/.venv/bin/playwright install
+   ```
+2. Nếu container báo thiếu thư viện hệ thống (system dependencies), chạy tiếp lệnh cài đặt dependencies cho Chromium:
+   ```powershell
+   docker exec hermes /opt/hermes/.venv/bin/playwright install-deps chromium
+   ```
+
+---
+
 ## Tóm tắt nhanh
 
 | # | Vấn đề | Nguyên nhân gốc | Fix |
@@ -245,4 +278,6 @@ docker compose up -d
 | 3 | Build bị EOF khi đổi mạng | TCP bị ngắt giữa chừng | Chạy lại `docker compose build` |
 | 4 | `COPY docker/wheels /tmp/wheels: not found` | Thư mục `docker/wheels` không được track bởi git | Tạo thư mục rỗng `docker/wheels` ở local và build lại |
 | 5 | `env file .env.lightrag not found` | File `.env.lightrag` bị gitignore | Khôi phục file cấu hình (dùng `docker inspect lightrag` nếu cần) |
+| 6 | `BrowserType.launch: Executable doesn't exist` | Nâng cấp Playwright nhưng chưa tải browser tương thích | Chạy `playwright install` và `playwright install-deps` trong container |
+
 
