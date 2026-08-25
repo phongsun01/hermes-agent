@@ -2,21 +2,11 @@
 """Daily weather report + Tide info for Quảng Ninh, Vietnam — delivered at 06:00 VN time."""
 
 import urllib.request, json, datetime, sys, time, re
-
-LAT, LON = "20.9505", "107.0734"
-MAX_RETRIES = 5
-RETRY_DELAY = 8
-
-# ============================================================
-# WEATHER DATA
-# ============================================================
-
-# ============================================================
-# MAIN
-# ============================================================
-
 import argparse
 import urllib.parse
+
+LAT_F, LON_F = 20.9505, 107.0734  # Hạ Long, Quảng Ninh
+LAT, LON = "20.9505", "107.0734"  # string version for wttr.in URLs
 
 TIDE_LOCATIONS = {
     "quảng ninh": "Cam-Pha-Vietnam",
@@ -32,58 +22,222 @@ TIDE_LOCATIONS = {
     "tphcm": "Ho-Chi-Minh-City-Vietnam"
 }
 
+
+# ── Weather code descriptions (Open-Meteo WMO codes → Vietnamese) ────────────
+WEATHER_CODE_VI = {
+    0: "Trời quang", 1: "Khá quang", 2: "Ít mây", 3: "Nhiều mây",
+    45: "Sương mù", 48: "Sương mù đóng băng",
+    51: "Mưa phùn nhẹ", 53: "Mưa phùn vừa", 55: "Mưa phùn nặng hạt",
+    61: "Mưa nhẹ", 63: "Mưa vừa", 65: "Mưa to",
+    80: "Mưa rào nhẹ", 81: "Mưa rào vừa", 82: "Mưa rào to",
+    95: "Dông", 96: "Dông có mưa đá nhẹ", 99: "Dông có mưa đá mạnh",
+}
+
+def _fetch_json(url, timeout=18, retries=3):
+    """Fetch a JSON URL with simple retry + exponential backoff."""
+    last_err = None
+    for i in range(retries):
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 (compatible; HermesBot/1.0)"}
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8", errors="ignore"))
+        except Exception as e:
+            last_err = e
+            if i < retries - 1:
+                time.sleep(4 * (i + 1))
+    raise last_err
+
+
+def _fetch_open_meteo(location=None):
+    """
+    Primary source: Open-Meteo (free, no API key, very reliable).
+    Returns a dict in wttr.in-compatible format so the rest of the script
+    can stay unchanged.
+    """
+    lat, lon = LAT_F, LON_F
+
+    # Hourly WMO code → English description for weather_icon() compatibility
+    WMO_EN = {
+        0: "Sunny", 1: "Mainly Sunny", 2: "Partly cloudy", 3: "Overcast",
+        45: "Fog", 48: "Fog",
+        51: "Light drizzle", 53: "Drizzle", 55: "Heavy drizzle",
+        61: "Light rain", 63: "Moderate rain", 65: "Heavy rain",
+        80: "Light rain shower", 81: "Moderate rain shower", 82: "Heavy rain shower",
+        95: "Thundery outbreaks", 96: "Thundery outbreaks", 99: "Thundery outbreaks",
+    }
+
+    # Try both HTTP and HTTPS (some Docker/proxy environments block TLS)
+    for scheme in ("http", "https"):
+        try:
+            params = urllib.parse.urlencode({
+                "latitude": lat,
+                "longitude": lon,
+                "current": ",".join([
+                    "temperature_2m", "relative_humidity_2m", "apparent_temperature",
+                    "weather_code", "wind_speed_10m", "wind_direction_10m",
+                    "surface_pressure", "visibility", "cloud_cover", "uv_index",
+                ]),
+                "hourly": ",".join([
+                    "temperature_2m", "apparent_temperature", "weather_code",
+                    "relative_humidity_2m", "wind_speed_10m", "precipitation_probability",
+                ]),
+                "daily": ",".join([
+                    "temperature_2m_max", "temperature_2m_min",
+                    "sunrise", "sunset", "precipitation_probability_max",
+                    "weather_code",
+                ]),
+                "timezone": "Asia/Bangkok",
+                "forecast_days": 4,
+            })
+            url = f"{scheme}://api.open-meteo.com/v1/forecast?{params}"
+            w = _fetch_json(url, timeout=20, retries=3)
+        except Exception:
+            continue
+
+        cur = w.get("current", {})
+        daily = w.get("daily", {})
+        hourly = w.get("hourly", {})
+
+        code = cur.get("weather_code", 0)
+        desc_en = WMO_EN.get(code, "Partly cloudy")
+        desc_vi = WEATHER_CODE_VI.get(code, "Thời tiết thay đổi")
+
+        def _to_ampm(t24):
+            try:
+                h, m = int(t24[:2]), int(t24[3:5])
+                ampm = "AM" if h < 12 else "PM"
+                h12 = h % 12 or 12
+                return f"{h12:02d}:{m:02d} {ampm}"
+            except Exception:
+                return t24
+
+        def _v(lst, k, default="0"):
+            return str(round(lst[k])) if lst and k < len(lst) else default
+
+        def _build_day(day_idx, _daily=daily, _hourly=hourly, _wmo=WMO_EN, _de=desc_en):
+            """Build one wttr.in-compatible daily entry from Open-Meteo arrays."""
+            h_codes = (_hourly.get("weather_code") or [])[day_idx*24:(day_idx+1)*24]
+            mid_code = h_codes[12] if len(h_codes) > 12 else (h_codes[0] if h_codes else 0)
+            mid_desc = _wmo.get(mid_code, _de)
+            h_temps = (_hourly.get("temperature_2m") or [])[day_idx*24:(day_idx+1)*24]
+            h_feels = (_hourly.get("apparent_temperature") or [])[day_idx*24:(day_idx+1)*24]
+            h_hum   = (_hourly.get("relative_humidity_2m") or [])[day_idx*24:(day_idx+1)*24]
+            h_wind  = (_hourly.get("wind_speed_10m") or [])[day_idx*24:(day_idx+1)*24]
+            h_prec  = (_hourly.get("precipitation_probability") or [])[day_idx*24:(day_idx+1)*24]
+
+            slots = []
+            for hr in [0, 3, 6, 9, 12, 15, 18, 21]:
+                wc = h_codes[hr] if h_codes and hr < len(h_codes) else 0
+                slots.append({
+                    "time": str(hr * 100),
+                    "tempC": _v(h_temps, hr),
+                    "FeelsLikeC": _v(h_feels, hr),
+                    "humidity": _v(h_hum, hr),
+                    "windspeedKmph": _v(h_wind, hr),
+                    "chanceofrain": _v(h_prec, hr),
+                    "weatherDesc": [{"value": _wmo.get(wc, mid_desc)}],
+                })
+
+            # Open-Meteo uses key "time" for daily dates, not "date"
+            d_dates = _daily.get("time") or _daily.get("date") or []
+            d_date = d_dates[day_idx] if day_idx < len(d_dates) else ""
+            sunrises = _daily.get("sunrise") or []
+            sunsets  = _daily.get("sunset") or []
+            sunrise_s = sunrises[day_idx].split("T")[1] if day_idx < len(sunrises) else "05:33"
+            sunset_s  = sunsets[day_idx].split("T")[1]  if day_idx < len(sunsets)  else "18:14"
+            t_min = _daily.get("temperature_2m_min") or []
+            t_max = _daily.get("temperature_2m_max") or []
+            return {
+                "date": d_date,
+                "mintempC": str(round(t_min[day_idx])) if day_idx < len(t_min) else "?",
+                "maxtempC": str(round(t_max[day_idx])) if day_idx < len(t_max) else "?",
+                "astronomy": [{"sunrise": _to_ampm(sunrise_s), "sunset": _to_ampm(sunset_s), "moon_phase": ""}],
+                "hourly": slots,
+            }
+
+        # Use key "time" (Open-Meteo) or "date" (wttr.in compat) for day count
+        n_days = len(daily.get("time") or daily.get("date") or [])
+        weather_days = [_build_day(i) for i in range(min(4, n_days))]
+
+        wind_deg = cur.get("wind_direction_10m", 0)
+        dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
+        wind_dir = dirs[round(wind_deg / 22.5) % 16]
+
+        result = {
+            "current_condition": [{
+                "temp_C": str(round(cur.get("temperature_2m", 0))),
+                "FeelsLikeC": str(round(cur.get("apparent_temperature", 0))),
+                "humidity": str(round(cur.get("relative_humidity_2m", 0))),
+                "windspeedKmph": str(round(cur.get("wind_speed_10m", 0))),
+                "winddir16Point": wind_dir,
+                "uvIndex": str(round(cur.get("uv_index", 0))),
+                "visibility": str(round((cur.get("visibility", 10000)) / 1000)),
+                "cloudcover": str(round(cur.get("cloud_cover", 0))),
+                "pressure": str(round(cur.get("surface_pressure", 1010))),
+                "weatherDesc": [{"value": desc_en}],
+                "_desc_vi": desc_vi,
+            }],
+            "weather": weather_days,
+            "_source": "open-meteo",
+        }
+        return result
+
+
+    raise RuntimeError("Open-Meteo không phản hồi (cả HTTP lẫn HTTPS)")
+
+
 def fetch_weather(location=None):
-    """Fetch weather data from wttr.in with retry + fallback logic."""
-    # Build candidate URLs: prefer location name, fallback to lat/lon
+    """
+    Fetch weather with 3-tier fallback:
+      1. Open-Meteo (primary — free, no key, very reliable)
+      2. wttr.in by location name
+      3. wttr.in by lat/lon coordinates
+    """
+    errors = []
+
+    # ── Tier 1: Open-Meteo ───────────────────────────────────────────────────
+    try:
+        return _fetch_open_meteo(location)
+    except Exception as e:
+        errors.append(f"open-meteo: {e}")
+
+    # ── Tier 2+3: wttr.in ────────────────────────────────────────────────────
     if location:
         loc_encoded = urllib.parse.quote(location)
-        urls = [
+        wttr_urls = [
             f'https://wttr.in/{loc_encoded}?format=j1',
-            f'https://wttr.in/{LAT},{LON}?format=j1',  # fallback to coordinates
+            f'https://wttr.in/{LAT},{LON}?format=j1',
         ]
     else:
-        urls = [f'https://wttr.in/{LAT},{LON}?format=j1']
+        wttr_urls = [f'https://wttr.in/{LAT},{LON}?format=j1']
 
-    last_error = None
-
-    for url in urls:
-        for attempt in range(1, MAX_RETRIES + 1):
+    for url in wttr_urls:
+        for attempt in range(1, 4):
             try:
-                req = urllib.request.Request(
-                    url,
-                    headers={
-                        'User-Agent': 'Mozilla/5.0 (compatible; HermesBot/1.0)',
-                        'Accept': 'application/json',
-                    }
-                )
-                with urllib.request.urlopen(req, timeout=25) as r:
-                    raw = r.read()
-                    data = json.loads(raw)
-
+                data = _fetch_json(url, timeout=20, retries=1)
                 if 'current_condition' not in data or not data['current_condition']:
-                    raise ValueError("Missing current_condition in response")
+                    raise ValueError("Missing current_condition")
                 if 'weather' not in data or not data['weather']:
-                    raise ValueError("Missing weather forecast in response")
-
+                    raise ValueError("Missing weather forecast")
+                data["_source"] = "wttr.in"
                 return data
-
             except urllib.error.HTTPError as e:
-                last_error = e
-                if e.code == 500 and attempt < MAX_RETRIES:
-                    # Exponential backoff for server errors
-                    wait = RETRY_DELAY * attempt
-                    time.sleep(wait)
-                elif e.code == 500:
-                    break  # Exhausted retries for this URL, try fallback
-                elif attempt < MAX_RETRIES:
-                    time.sleep(RETRY_DELAY)
-            except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
-                last_error = e
-                if attempt < MAX_RETRIES:
-                    time.sleep(RETRY_DELAY * attempt)
+                errors.append(f"wttr({url}): HTTP {e.code}")
+                if e.code == 500 and attempt < 3:
+                    time.sleep(8 * attempt)
+                else:
+                    break
+            except Exception as e:
+                errors.append(f"wttr({url}): {e}")
+                if attempt < 3:
+                    time.sleep(8 * attempt)
 
-    print(f"Lỗi lấy dữ liệu thời tiết sau {MAX_RETRIES} lần thử: {last_error}")
+    print(f"Lỗi lấy dữ liệu thời tiết (tất cả nguồn thất bại): {' | '.join(errors)}")
     sys.exit(1)
+
+
 
 
 def get_tide_url(location):
