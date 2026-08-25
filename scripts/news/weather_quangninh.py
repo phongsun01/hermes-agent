@@ -4,8 +4,8 @@
 import urllib.request, json, datetime, sys, time, re
 
 LAT, LON = "20.9505", "107.0734"
-MAX_RETRIES = 3
-RETRY_DELAY = 5
+MAX_RETRIES = 5
+RETRY_DELAY = 8
 
 # ============================================================
 # WEATHER DATA
@@ -33,40 +33,54 @@ TIDE_LOCATIONS = {
 }
 
 def fetch_weather(location=None):
-    """Fetch weather data from wttr.in with retry logic."""
+    """Fetch weather data from wttr.in with retry + fallback logic."""
+    # Build candidate URLs: prefer location name, fallback to lat/lon
     if location:
         loc_encoded = urllib.parse.quote(location)
-        url = f'https://wttr.in/{loc_encoded}?format=j1'
+        urls = [
+            f'https://wttr.in/{loc_encoded}?format=j1',
+            f'https://wttr.in/{LAT},{LON}?format=j1',  # fallback to coordinates
+        ]
     else:
-        url = f'https://wttr.in/{LAT},{LON}?format=j1'
-        
+        urls = [f'https://wttr.in/{LAT},{LON}?format=j1']
+
     last_error = None
 
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            req = urllib.request.Request(
-                url,
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (compatible; HermesBot/1.0)',
-                    'Accept': 'application/json',
-                }
-            )
-            with urllib.request.urlopen(req, timeout=20) as r:
-                raw = r.read()
-                data = json.loads(raw)
+    for url in urls:
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (compatible; HermesBot/1.0)',
+                        'Accept': 'application/json',
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=25) as r:
+                    raw = r.read()
+                    data = json.loads(raw)
 
-            if 'current_condition' not in data or not data['current_condition']:
-                raise ValueError("Missing current_condition in response")
-            if 'weather' not in data or not data['weather']:
-                raise ValueError("Missing weather forecast in response")
+                if 'current_condition' not in data or not data['current_condition']:
+                    raise ValueError("Missing current_condition in response")
+                if 'weather' not in data or not data['weather']:
+                    raise ValueError("Missing weather forecast in response")
 
-            return data
+                return data
 
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError,
-                json.JSONDecodeError, ValueError) as e:
-            last_error = e
-            if attempt < MAX_RETRIES:
-                time.sleep(RETRY_DELAY)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                if e.code == 500 and attempt < MAX_RETRIES:
+                    # Exponential backoff for server errors
+                    wait = RETRY_DELAY * attempt
+                    time.sleep(wait)
+                elif e.code == 500:
+                    break  # Exhausted retries for this URL, try fallback
+                elif attempt < MAX_RETRIES:
+                    time.sleep(RETRY_DELAY)
+            except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
+                last_error = e
+                if attempt < MAX_RETRIES:
+                    time.sleep(RETRY_DELAY * attempt)
 
     print(f"Lỗi lấy dữ liệu thời tiết sau {MAX_RETRIES} lần thử: {last_error}")
     sys.exit(1)
