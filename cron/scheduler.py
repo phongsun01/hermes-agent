@@ -753,6 +753,21 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
     except Exception:
         pass
 
+    # ── Strip leaked tool-call markup from agent responses ────────────────────
+    # Some models occasionally hallucinate <dots_function_call>, <invoke>, or
+    # <function_calls> blocks as literal text instead of actually calling the
+    # tool. Strip these before wrapping so users never see raw XML in cron
+    # notifications.
+    import re as _re
+    _TOOL_XML_RE = _re.compile(
+        r"<dots_function_call\b[^>]*>.*?</dots_function_call\s*>"
+        r"|<tool_call\b[^>]*>.*?</tool_call\s*>"
+        r"|<invoke\b[^>]*>.*?</invoke\s*>"
+        r"|<function_calls\b[^>]*>.*?</function_calls\s*>",
+        _re.DOTALL | _re.IGNORECASE,
+    )
+    content = _TOOL_XML_RE.sub("", content).strip()
+
     if wrap_response:
         task_name = job.get("name", job["id"])
         job_id = job.get("id", "")
