@@ -67,6 +67,8 @@ services:
     environment:
       - HERMES_UID=${HERMES_UID:-10000}
       - HERMES_GID=${HERMES_GID:-10000}
+      - TZ=Asia/Ho_Chi_Minh
+      - HERMES_GATEWAY_NO_SUPERVISE=1
     # Accessible from host at http://localhost:9119
     # --insecure is required when binding to non-localhost address inside Docker
     command: ["dashboard", "--host", "0.0.0.0", "--port", "9119", "--no-open", "--insecure"]

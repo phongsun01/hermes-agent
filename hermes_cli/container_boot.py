@@ -106,6 +106,8 @@ def reconcile_profile_gateways(
     )
     default_prior_state = legacy_default_state or _read_prior_state(hermes_home)
     default_should_start = default_prior_state in _AUTOSTART_STATES
+    if os.environ.get("HERMES_GATEWAY_NO_SUPERVISE", "").lower() in ("1", "true", "yes"):
+        default_should_start = False
     if not dry_run:
         _cleanup_stale_runtime_files(hermes_home)
         _register_service(scandir, "default", start=default_should_start)

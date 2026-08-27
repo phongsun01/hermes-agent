@@ -1,6 +1,6 @@
 # 🔍 Chẩn đoán Zalo Plugin — Hermes Gateway
 
-> Thời điểm cập nhật: 2026-06-16 09:45 ICT
+> Thời điểm cập nhật: 2026-08-18 07:50 ICT
 
 ---
 
@@ -29,6 +29,7 @@
 | Message dedup | ✅ **4 layers** | server.js (isSelf + messageId ring + **single-client SSE**) + adapter.py (messageId ring) |
 | `sseClients` | ✅ **Single-client mode → 409 gate** | 409 reject thay vì evict; Docker phantom bị từ chối tại HTTP level |
 | Windows Firewall | ✅ **Rule port 8787** (Fix 23) | Inbound rule cho Docker → host bridge traffic |
+| s6-overlay shebang (CRLF) | ✅ **Đã sửa (Fix 28)** | Chuyển đổi dòng CRLF -> LF cho các script khởi động trong thư mục `docker/` trên host Windows |
 
 ---
 
@@ -141,6 +142,43 @@ Khi chạy các tác vụ định kỳ (Cron jobs) để gửi thông báo tự 
    ```bash
    docker exec hermes hermes gateway restart
    ```
+
+### 28. Sửa lỗi line endings (CRLF to LF) gây crash s6-overlay sau khi máy chủ reboot (2026-08-18)
+
+**Vấn đề:** 
+Sau khi Windows/Server restart, container Docker `hermes` và `hermes-dashboard` liên tục gặp lỗi khởi động `exec: fatal: unable to exec sh: No such file or directory` và bị lặp lại vô hạn, gây kẹt và ngắt kết nối với Zalo/Telegram.
+
+**Root cause:**
+- Trên Windows host, khi clone code hoặc lưu file, Git hoặc trình soạn thảo mặc định ghi định dạng xuống dòng là CRLF (`\r\n`).
+- S6-overlay chạy trong Docker container là Linux yêu cầu định dạng dòng Unix LF (`\n`) đối với các file cấu hình và script khởi động dịch vụ (nằm trong thư mục `docker/s6-rc.d/` và `docker/cont-init.d/`). Khi có ký tự ẩn `\r`, shebang `#!/bin/sh` bị đọc sai thành `/bin/sh\r` -> báo lỗi không tìm thấy tệp hoặc thư mục.
+
+**Giải pháp:**
+1. **Chuyển đổi line endings sang LF trên host:** Chạy script PowerShell sau trên Windows để chuyển đổi toàn bộ tệp trong thư mục cấu hình về định dạng LF:
+   ```powershell
+   Get-ChildItem "D:\Antigravity\Hermes\docker\s6-rc.d" -Recurse -Include "type","run","finish" | ForEach-Object {
+       $content = [System.IO.File]::ReadAllText($_.FullName)
+       $fixed = $content -replace "`r`n", "`n"
+       [System.IO.File]::WriteAllText($_.FullName, $fixed, [System.Text.UTF8Encoding]::new($false))
+   }
+   Get-ChildItem "D:\Antigravity\Hermes\docker\cont-init.d" -File | ForEach-Object {
+       $content = [System.IO.File]::ReadAllText($_.FullName)
+       $fixed = $content -replace "`r`n", "`n"
+       [System.IO.File]::WriteAllText($_.FullName, $fixed, [System.Text.UTF8Encoding]::new($false))
+   }
+   # Áp dụng tương tự cho stage2-hook.sh và main-wrapper.sh nếu cần thiết
+   ```
+2. **Xoá tệp khóa của container cũ:** Để tránh xung đột lock log file gây kẹt:
+   ```powershell
+   Remove-Item -Force C:\Users\Desktop\.hermes\logs\gateways\default\lock
+   ```
+3. **Build lại image và khởi động lại container:**
+   ```powershell
+   docker compose build
+   docker compose down
+   docker compose up -d
+   ```
+
+**Kết quả:** Dịch vụ khởi động hoàn toàn trơn tru, Gateway kết nối lại ngay lập tức tới Zalo bridge (`sseClients` chuyển về 1).
 
 ---
 
@@ -1083,6 +1121,63 @@ Hàng trăm dòng 429 liên tục trong nhiều phút.
 **Cách khắc phục:**
 1. **Parse Markdown sang Rich Styles:** Trong hàm `sendText` của `zaloClient.js`, bổ sung thuật toán duyệt chuỗi (regex matchAll) để bóc tách `**bold**`, `__bold__`, và `_italic_` thành các cặp `{ start, len, st }` tương ứng (với `st: "b"` cho bold và `st: "i"` cho italic) rồi gửi kèm object `content.styles`.
 2. **Khắc phục List Bullet Point:** Sửa regex pattern chỉ match `_italic_` đối với in nghiêng, loại bỏ hoàn toàn việc match `*italic*` bằng dấu sao đơn để tránh nhận nhầm và nuốt mất ký tự gạch đầu dòng (`* `) của danh sách.
+
+### 27. Lỗi SSE Client Kick Loop / Duplicate Gateway Process (2026-08-19)
+
+**Vấn đề:**
+- Bridge liên tục báo lỗi kick loop vô hạn:
+  ```
+  [bridge] SSE client disconnected, total: 1
+  [bridge] Kicking old SSE client(s) to accept new connection.
+  [bridge] SSE client connected, total: 1
+  ```
+- Kèm theo đó là Telegram adapter cũng báo conflict (`Conflict: terminated by other getUpdates request`).
+- Agent log xuất hiện song song 2 luồng log với 2 timezone khác nhau (ví dụ: `14:41:xx` và `07:41:xx` trên cùng một event Zalo/Telegram).
+
+**Nguyên nhân gốc rễ (có 2 nguyên nhân xếp chồng):**
+
+1. **Bug trong ZaloAdapter (`adapter.py`):**
+   Trong method `connect()`, khi _reconnect watcher_ gọi lại hàm này do lỗi mất kết nối cũ, dòng lệnh tạo `self._sse_task = asyncio.create_task(self._sse_loop())` đã ghi đè trực tiếp biến `_sse_task` **mà không cancel task SSE cũ**. Kết quả là task cũ (Task A) vẫn chạy ẩn và liên tục cố reconnect tới bridge, trong khi task mới (Task B) cũng làm tương tự → 2 task cùng chung 1 process tranh chấp nhau bridge slot, gây ra kick loop vô hạn.
+
+2. **Container `hermes-dashboard` spawn Gateway thứ hai:**
+   Trong `docker-compose.yml`, container `dashboard` và container `gateway` dùng chung volume `~/.hermes`. 
+   Khi container `dashboard` boot, script `container_boot.py` (chạy qua s6 supervisor) quét thấy file `gateway_state.json` có trạng thái là `running`. Vì `dashboard` container không được cấu hình chặn s6-supervise, nó mặc định coi đây là mandate và tự động spawn thêm một process `hermes gateway run` song song với container `gateway` chính. Process ảo này không có biến `TZ` nên xuất log hệ giờ UTC, giải thích hiện tượng "1 luồng giờ VN, 1 luồng giờ UTC".
+
+**Cách khắc phục:**
+
+1. **Vá Zalo Adapter:** Sửa `C:\Users\Desktop\.hermes\plugins\zalo\adapter.py`, trước khi `create_task`, bổ sung block cancel:
+   ```python
+   if self._sse_task and not self._sse_task.done():
+       self._sse_task.cancel()
+       try:
+           await self._sse_task
+       except asyncio.CancelledError:
+           pass
+       self._sse_task = None
+   ```
+2. **Ngăn chặn s6-supervise tự spawn lại (Sửa `service_manager.py`):** Sửa hàm render script của `s6-supervise` (`_render_run_script`) để chèn logic chặn `exit 0` vào thẳng file bash script (không phụ thuộc file trạng thái tmpfs).
+3. **Cập nhật `docker-compose.yml`:** Thêm `HERMES_GATEWAY_NO_SUPERVISE=1` và `TZ=Asia/Ho_Chi_Minh` vào biến môi trường của container `dashboard` để cấm container này tự ý spawn gateway process và đồng bộ timezone nếu có lỗi log ra.
+
+### 28. Zalo API Error 112 khi gửi tin nhắn dài hoặc Rich Text lớn (2026-08-24)
+
+**Vấn đề:**
+- Khi bot gửi phản hồi dài (ví dụ: danh sách 20 tài liệu dài >2.000 ký tự có chứa bold/markdown), Bridge báo lỗi:
+  ```
+  [bridge] Express Error: ZaloApiError [ZcaApiError]: Lỗi không xác định { code: 112 }
+  POST /send 500
+  ```
+- Agent log báo `[Zalo] Send failed: Lỗi không xác định`.
+
+**Nguyên nhân:**
+- Endpoint gửi tin nhắn của Zalo Web (`/api/message/sms` hoặc `/api/group/sendmsg`) qua thư viện `zca-js` áp đặt giới hạn kích thước payload mã hóa AES.
+- Khi tin nhắn dài >1.500 ký tự kết hợp với mảng `styles` (bold/italic) dày đặc hoặc emoji đa byte, payload vượt quá ngưỡng xử lý của Zalo server dẫn đến trả về mã lỗi `112`.
+- Trước đây `adapter.py` đặt `max_message_length = 4000` (quá lớn đối với API Zalo cá nhân) và `zaloClient.js` không có cơ chế retry tự động khi gửi có format bị lỗi.
+
+**Cách khắc phục:**
+1. **Giảm `max_message_length` trong `adapter.py`:** Đổi ngưỡng mặc định từ `4000` xuống `1500` ký tự (có thể override bằng biến môi trường `ZALO_MAX_MESSAGE_LENGTH`). Các tin nhắn dài sẽ được tự động chia nhỏ thành các chunk ~1.500 ký tự gửi cách nhau 0.5s.
+2. **Cơ chế Fallback 2 lớp trong `zaloClient.js`:**
+   - **Fallback 1 (Bỏ styles):** Nếu gọi `sendMessage` kèm mảng `styles` thất bại (gặp mã lỗi 112 hoặc lỗi offset), tự động bắt lỗi và thử lại ngay lập tức bằng tin nhắn văn bản thuần túy (plain text).
+   - **Fallback 2 (Tự động chia nhỏ):** Nếu tin nhắn vẫn quá dài (>1.200 ký tự) và bị server Zalo reject, tự động tách đôi tin nhắn tại vị trí xuống dòng `\n` gần nhất và gửi nối tiếp nhau cách nhau 400ms.
 
 ---
 

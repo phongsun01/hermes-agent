@@ -614,6 +614,16 @@ class S6ServiceManager:
         # start`, etc. See `_gateway_command_inner` for the matching
         # guard.
         lines.append("export HERMES_S6_SUPERVISED_CHILD=1")
+        # Guard: if the container was launched with HERMES_GATEWAY_NO_SUPERVISE=1,
+        # the gateway is already running as the Docker CMD (main-wrapper.sh).
+        # Exit immediately so s6-supervise doesn't spawn a duplicate.
+        # This guard lives in the *script* (not just in container_boot.py's
+        # ``start`` decision) so it remains effective even after a
+        # ``docker restart`` where the s6 service dir survives on tmpfs but
+        # the ``down`` marker written by container_boot.py may be gone.
+        lines.append(
+            '[ "${HERMES_GATEWAY_NO_SUPERVISE:-}" = "1" ] && exit 0'
+        )
         if profile == "default":
             gateway_cmd = "hermes gateway run"
         else:

@@ -14,7 +14,7 @@ Kỹ năng tổng hợp thông tin ngày mới bao gồm thời tiết, triều 
 
 - `/newsmenu` — Hiển thị Menu bản tin sáng dạng nút bấm trực quan (Telegram/Zalo).
 - `/news vang` — Xem giá vàng miếng SJC và vàng nhẫn 9999 mới nhất.
-- `/news xang` — Xem giá xăng dầu Petrolimex hôm nay.
+- `/news xang` — Xem giá xăng dầu điều hành mới nhất (E5, RON 95, Dầu DO).
 - `/news tygia` — Xem tỷ giá ngoại tệ Vietcombank (USD, EUR...).
 - `/news thoitiet [tên_tỉnh]` — Xem dự báo thời tiết hôm nay của tỉnh/thành (mặc định: Quảng Ninh).
 - `/news trieucuong [tên_tỉnh]` — Xem thông tin triều cường (mặc định: Quảng Ninh - trích xuất tại Cẩm Phả).
