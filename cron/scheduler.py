@@ -757,7 +757,7 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
     # Some models occasionally hallucinate <dots_function_call>, <invoke>, or
     # <function_calls> blocks as literal text instead of actually calling the
     # tool. Strip these before wrapping so users never see raw XML in cron
-    # notifications.
+    # Tool XML leak protection: strip out any raw XML tool-calling syntax
     import re as _re
     _TOOL_XML_RE = _re.compile(
         r"<dots_function_call\b[^>]*>.*?</dots_function_call\s*>"
@@ -767,6 +767,15 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
         _re.DOTALL | _re.IGNORECASE,
     )
     content = _TOOL_XML_RE.sub("", content).strip()
+
+    # Safety ceiling: truncate runaway outputs to prevent spamming chat platforms (max 4000 chars)
+    MAX_CRON_DELIVERY_CHARS = 4000
+    if len(content) > MAX_CRON_DELIVERY_CHARS:
+        logger.warning(
+            "Job '%s': delivery content is very long (%d chars), truncating to %d chars to prevent channel flood",
+            job.get("id", ""), len(content), MAX_CRON_DELIVERY_CHARS,
+        )
+        content = content[:MAX_CRON_DELIVERY_CHARS].rstrip() + "\n\n*(Nội dung quá dài đã được rút gọn)*"
 
     if wrap_response:
         task_name = job.get("name", job["id"])
