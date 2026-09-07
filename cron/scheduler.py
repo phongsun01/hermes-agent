@@ -757,13 +757,16 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
     # Some models occasionally hallucinate <dots_function_call>, <invoke>, or
     # <function_calls> blocks as literal text instead of actually calling the
     # tool. Strip these before wrapping so users never see raw XML in cron
-    # Tool XML leak protection: strip out any raw XML tool-calling syntax
+    # Tool markup leak protection: strip out any raw XML or pseudo tool-calling syntax
     import re as _re
     _TOOL_XML_RE = _re.compile(
         r"<dots_function_call\b[^>]*>.*?</dots_function_call\s*>"
         r"|<tool_call\b[^>]*>.*?</tool_call\s*>"
         r"|<invoke\b[^>]*>.*?</invoke\s*>"
-        r"|<function_calls\b[^>]*>.*?</function_calls\s*>",
+        r"|<function_calls\b[^>]*>.*?</function_calls\s*>"
+        r"|\[TOOL_CALL\]\s*\{.*?\}\s*\[/TOOL_CALL\]"
+        r"|\[TOOL_CALL\].*?\[/TOOL_CALL\]"
+        r"|\[invoke\b[^\]]*\].*?\[/invoke\]",
         _re.DOTALL | _re.IGNORECASE,
     )
     content = _TOOL_XML_RE.sub("", content).strip()
