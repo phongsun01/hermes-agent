@@ -269,7 +269,7 @@ fi
 # `docker exec <container> hermes …` (root unless `-u` is passed) they
 # land root-owned, and the unprivileged hermes runtime then hits
 # PermissionError on next startup (e.g. gateway.lock / state.db /
-# auth.json), producing a gateway restart loop.
+# auth.json / cron/jobs.json), producing a gateway restart loop or broken cron scheduler.
 #
 # We use an explicit allowlist rather than a blanket `find -user root`
 # sweep so host-owned files in a bind-mounted $HERMES_HOME are never
@@ -288,6 +288,14 @@ for f in \
         chown hermes:hermes "$HERMES_HOME/$f" 2>/dev/null || true
     fi
 done
+
+# Ensure cron directory and jobs.json are always owned by hermes with proper permissions on boot
+if [ -d "$HERMES_HOME/cron" ]; then
+    chown -R hermes:hermes "$HERMES_HOME/cron" 2>/dev/null || true
+    if [ -f "$HERMES_HOME/cron/jobs.json" ]; then
+        chmod 644 "$HERMES_HOME/cron/jobs.json" 2>/dev/null || true
+    fi
+fi
 
 # --- config.yaml permissions ---
 # Ensure config.yaml is readable by the hermes runtime user even if it
