@@ -1,7 +1,7 @@
 ---
 name: cc
-description: Hệ thống tương tác xử lý công văn Quảng Ninh. Hỗ trợ /cc list, /cc list today, /cc end &lt;số&gt; [lý do], /cc end all, /cc tai &lt;số&gt;, /cc duthao &lt;số&gt;, /cc tomtat &lt;số&gt;, /cc help.
-version: 1.9.0
+description: Quản lý công văn đến/đi trên cổng congchuc.quangninh.gov.vn (Quảng Ninh) - xem danh sách VB mới, kết thúc hoặc chuyển xử lý, tải đính kèm, tóm tắt, soạn dự thảo, hiệu đính chính tả/văn phong, tìm văn bản đi, theo dõi văn bản đi. Dùng khi người dùng gõ /cc (list, list web, end, end all, tai, tomtat, duthao, hieudinh, sualoi, vbdi, theodoi, help) HOẶC nói tự nhiên như "kết thúc giúp anh văn bản số 2534", "có công văn mới không", "tóm tắt VB 2497", "tải file đính kèm văn bản 2490", "soạn dự thảo trả lời", "soát lỗi file này", "tìm văn bản đi số 188" - kể cả khi người dùng không nhắc tới "cc" hay "công chức".
+version: 2.1.0
 author: Hermes Agent
 metadata:
   hermes:
@@ -11,225 +11,116 @@ metadata:
 
 # Kỹ năng Quản lý Công văn (/cc)
 
-Khi người dùng gọi slash command `/cc` kèm theo các lệnh phụ, hãy phân tích yêu cầu và thực hiện chính xác các hướng dẫn dưới đây.
+## Nguyên tắc chạy lệnh
 
-LƯU Ý BẮT BUỘC: Bạn CHỈ ĐƯỢC CHẠY các lệnh sau đây bằng tool thực thi command (như `terminal` hoặc công cụ shell bạn có) và thông báo ngắn gọn kết quả cho người dùng, tuyệt đối không tự bịa thông tin. Môi trường của bạn là Linux (Docker), hãy dùng đường dẫn TUYỆT ĐỐI bắt đầu bằng `/opt/data`. (Các script ĐÃ TỒN TẠI ở thư mục `/opt/data/scripts/congchuc/`).
+- Chỉ chạy các lệnh có trong tài liệu này, bằng tool thực thi command, rồi báo ngắn gọn kết quả thật từ stdout/stderr. Không suy đoán hay bịa số liệu: đây là dữ liệu hành chính, sai một số văn bản là gây hậu quả thật.
+- Môi trường Linux (Docker). Dùng đường dẫn tuyệt đối; script nằm ở `/opt/data/skills/cc/scripts/`. Mọi script Python chạy bằng `uv run python` (không dùng `python` trần vì thiếu package).
+- Các thao tác ghi lên cổng (`end`, `end all`, chuyển xử lý) không hoàn tác được. Chỉ chạy khi người dùng yêu cầu rõ ràng, và dựa vào kết quả script để báo, không tự đánh dấu "done" khi script lỗi.
+- Lệnh chạy lâu hơn ~10s thì báo trước thời gian dự kiến để người dùng không tưởng bot bị treo.
 
-## Hướng dẫn xử lý các Lệnh phụ:
+## Bảng lệnh nhanh
 
-### 1. Lệnh `/cc list` (Liệt kê các văn bản mới)
-- **Hành động**: Chạy đoạn script lấy các văn bản mới:
-  `uv run python /opt/data/scripts/congchuc/congvan_status.py list --status new`
-- **Trả lời**: Liệt kê kết quả đọc được cho user một cách gọn gàng.
-  **QUY TẮC ĐỊNH DẠNG BẮT BUỘC:**
-  1. Sử dụng danh sách có đánh số thứ tự rõ ràng dạng `1. `, `2. ` (không dùng các icon chung chung như `📄` để thay thế số thứ tự).
-  2. Định dạng in đậm bằng dấu sao kép `**` cho mã số văn bản (ví dụ: `**#2534**`) và tên đơn vị gửi để Zalo Bridge có thể hiển thị in đậm tương ứng.
-  3. Dùng emoji sinh động và giữ khoảng cách dòng thoáng đãng, dễ đọc.
-
-### 2. Lệnh `/cc list today` (Liệt kê văn bản hôm nay)
-- **Hành động**: Bạn hãy chạy script Python:
-  `uv run python /opt/data/scripts/congchuc/congvan_status.py list`
-  Sau đó từ kết quả trả về, dùng kỹ năng lập luận của bạn để **chỉ lọc ra và hiển thị** các văn bản có ngày cập nhật trùng với ngày hôm nay.
-- **Trả lời**: Hiển thị danh sách kết quả cho người dùng.
-  *Áp dụng cùng quy tắc định dạng bắt buộc ở mục 1 (in đậm số VB bằng `**`, đánh số thứ tự `1. `, `2. `).*
-
-### 3. Lệnh `/cc end <số_vb> [lý do]` (Kết thúc văn bản)
-- **Hành động**: 
-  1. **Pre-check:** Đọc `vbden_state.json` kiểm tra trạng thái. Nếu đã `status: "done"` → báo user và bỏ qua (tiết kiệm ~15-30s không chạy Playwright vô ích).
-  2. Nếu chưa done, chạy kết thúc trên cổng:
-     `HERMES_HOME=/tmp uv run python /opt/data/scripts/congchuc/congchuc_action.py kethuc <số_vb> [lý do]`
-     Trong đó `[lý do]` là tuỳ chọn — nếu không có, script dùng mặc định "Đã hoàn thành xử lý."
-  3. **Post-run state sync (bắt buộc)**: Sau khi script báo ✅ thành công, chạy:
-     `uv run python /opt/data/scripts/congchuc/congvan_status.py done <số_vb>`
-     Vì script action ghi trạng thái vào state file trong `/tmp/`, còn `congvan_status.py` đọc từ state file chính. Bỏ qua bước này → VB vẫn hiển thị `[new]` dù đã kết thúc trên cổng.
-- **Trả lời**: Thông báo lại tiến trình (lệnh này sẽ chạy mất khoảng 10-15s để vào web bấm kết thúc). Trả lại thông báo kết quả cuối cùng từ script (thành công hay thất bại).
-- **Lưu ý nếu gặp "Không tìm thấy"**: Khi retry và gặp "Không tìm thấy văn bản trên grid" → đó là tín hiệu THÀNH CÔNG (VB đã được xử lý, không còn trên tab Chưa xử lý). Vẫn chạy `congvan_status.py done <số_vb>` và báo user là done.
-
-### 4. Lệnh `/cc end all` (Kết thúc toàn bộ văn bản chưa xử lý)
-- **Hành động**: 
-  1. Đầu tiên, chạy `uv run python /opt/data/scripts/congchuc/congvan_status.py list --status new`
-  2. Phân tích kết quả để tìm ra TẤT CẢ các `<số_vb>` đang ở trạng thái `new`.
-  3. **Pre-filter:** Đọc `vbden_state.json`, loại bỏ các VB đã có `status: "done"` khỏi danh sách (tránh chạy Playwright vô ích).
-  4. **Yêu cầu xác nhận (Safeguard):** Trước khi bắt đầu vòng lặp thực hiện kết thúc trên web, hãy hiển thị danh sách các số văn bản tìm được và hỏi xác nhận từ người dùng: *"Có X văn bản chưa xử lý (danh sách: <số_1>, <số_2>,...), bạn có chắc chắn muốn kết thúc tất cả không?"*
-  5. Chỉ thực hiện khi người dùng trả lời đồng ý/xác nhận. Nếu đồng ý, lặp qua và chạy `HERMES_HOME=/tmp uv run python /opt/data/scripts/congchuc/congchuc_action.py kethuc <số_vb>` cho từng số đến.
-  6. **Post-run verify + state sync**: Sau khi vòng lặp Playwright kết thúc (hoặc timeout), chạy `uv run python /opt/data/scripts/congchuc/congvan_status.py list --status new` để kiểm tra. Với mỗi VB từ danh sách gốc không còn trong kết quả → chạy `congvan_status.py done <số_vb>` để đồng bộ state. Với VB vẫn còn trong kết quả → cần retry action.
-- **Trả lời**: Thông báo tiến trình cho người dùng, do lệnh chạy trình duyệt khá chậm (khoảng 10-15s / văn bản) nên bạn có thể nhắn tin "Đang tiến hành kết thúc N văn bản..." trước, sau đó chờ và thông báo kết quả.
-
-### 5. Lệnh `/cc tai <số_vb>` (Tải đính kèm của văn bản)
-- **Hành động**: Gọi hàm tải file đính kèm trực tiếp (không phải chờ cron):
-  `uv run python /opt/data/scripts/congchuc/congchuc_scrape.py --download-only <số_vb>`
-  Script sẽ login Playwright, tìm VB trên grid, click "Tải tất cả file", giải nén ZIP và lưu file vào `attachments/<số_vb>/`. Lệnh này mất khoảng 20-30s.
-- **Trước khi chạy**, thông báo ngay: _"Đang tải file đính kèm cho VB #<số_vb>... (~20-30s)"_
-- **Trả lời**: Sau khi lệnh kết thúc, liệt kê các file đã tải (tên + dung lượng). Nếu thất bại, thông báo lỗi từ stderr.
-  
-
-### 6. Lệnh `/cc duthao <số_vb>` (Dự thảo văn bản)
-- **Hành động**: Chạy lệnh tạo dự thảo bằng Python:
-  `uv run python /opt/data/scripts/congchuc/congchuc_draft.py --so-den <số_vb> --zalo`
-  *(Mặc định thêm tham số `--zalo` để tự động gửi file `.docx` dự thảo sang Zalo chat sau khi tạo xong. Nếu người dùng không muốn gửi Zalo, có thể chạy bỏ `--zalo` đi).*
-- **Trả lời**: Trả lời người dùng là "Đang tiến hành tạo dự thảo cho văn bản <số_vb> và sẽ gửi trực tiếp qua Zalo sau khi hoàn tất...". Lệnh này sẽ mất khoảng 15-30s. Sau khi chạy xong, thông báo kết quả.
-
-### 7. Lệnh `/cc tomtat <số_vb>` (Tóm tắt văn bản)
-- **Hành động**: Chạy script tóm tắt đầy đủ:
-  `uv run python /opt/data/skills/cc/scripts/congchuc_summarize.py --so-den <số_vb>`
-  
-  Script tự động thực hiện toàn bộ pipeline:
-  1. Lấy metadata (số CV, tác giả, trích yếu, trạng thái) từ `vbden_state.json`
-  2. Kiểm tra `attachments/<số_vb>/` có file không:
-     - **Có file** → đọc nội dung PDF (pymupdf) / DOCX (python-docx)
-     - **Không có file** → tự động tải về qua `congchuc_scrape.py --download-only` (~20-30s), rồi đọc
-  3. Feed nội dung file vào LLM → tóm tắt theo cấu trúc: Mục đích, Nội dung, Deadline, Đơn vị thực hiện, Đề xuất xử lý
-
-- **Trước khi chạy**: Thông báo "Đang tóm tắt VB #<số_vb>..." vì có thể mất 30-60s nếu phải tải file trước.
-- **Trả lời**: Trả về kết quả tóm tắt từ LLM. Nếu file là ảnh scan (không đọc được text), thông báo rõ cho người dùng.
-- **Lưu ý**: Script này **không cần** gọi `congchuc_summarize.py` rồi `congvan_status.py` riêng — tất cả được tích hợp trong 1 lần chạy.
-- **LLM không phản hồi**: Nếu script báo "⚠️ LLM không phản hồi", có thể tự đọc file thủ công và tóm tắt bằng khả năng của Hermes:
-  ```bash
-  # Đọc DOCX
-  uv run python -c "from docx import Document; d=Document('/opt/data/cron/cong-van-den/attachments/<số_vb>/*.docx'); print('\n'.join(p.text for p in d.paragraphs if p.text.strip()))"
-  # Đọc PDF  
-  uv run python -c "import fitz; doc=fitz.open('/opt/data/cron/cong-van-den/attachments/<số_vb>/*.pdf'); [print(doc[i].get_text()) for i in range(doc.page_count)]; doc.close()"
-  ```
-  Sau đó phân tích và tóm tắt thủ công cho sếp.
-
-
-### 8. Soạn văn bản góp ý (workflow — không phải slash command)
-
-Khi người dùng yêu cầu "soạn góp ý" dựa trên nội dung văn bản đến:
-- **Bước 1**: Xác định danh nghĩa đơn vị (hỏi nếu chưa rõ)
-- **Bước 2**: Đọc file PDF đính kèm bằng `uv run python` với `fitz` (hoặc dùng `congchuc_summarize.py` trước để có overview)
-- **Bước 3**: Soạn nội dung góp ý dạng Markdown ở `/tmp/`, cho người dùng xem duyệt
-- **Bước 4**: Nếu người dùng yêu cầu xuất Word, dùng python-docx (tham khảo `references/soan-congvan-word.md`)
-- **Tham khảo mẫu**: `templates/gopy-template.md`
-
-*Lưu ý:* Không chạy script tự động — workflow thủ công có sự duyệt của người dùng. Luôn hỏi ý kiến trước khi xuất file.
-
-### 9. Lệnh `/cc help` (Hướng dẫn sử dụng)
-- **Hành động**: Không cần chạy lệnh nào cả. 
-- **Trả lời**: Hiển thị tóm tắt ngắn gọn danh sách các lệnh `/cc` (list, list today, end, end all, tai, duthao, tomtat) cho người dùng.
-
-### 10. Viết bài giới thiệu / quảng cáo CC Skill
-Khi người dùng yêu cầu "viết bài giới thiệu" hoặc "quảng cáo" để mời đồng nghiệp dùng:
-- **Tham khảo** file `references/gioi-thieu-cc-skill.md` — đây là bản đã được sếp duyệt qua nhiều vòng refine.
-- Các điểm mấu chốt khi viết:
-  1. AI Pro = **Gemini Pro hoặc OpenAI** (không ghi GPT-4o — sếp đã sửa)
-  2. Zalo phổ biến hơn cho thông báo nhanh, Telegram hỗ trợ gửi file tốt hơn
-  3. Tần suất quét tùy chỉnh được (mặc định mỗi giờ, có thể 5 phút/lần nhưng tốn phí AI hơn)
-  4. Tự động kết thúc VB dạng Thông báo/Để biết
-  5. Chi phí cài đặt: "1 bữa bia"
-  6. Phân biệt rõ các lệnh: `/cc end` (kết thúc 1 VB), `/cc end all` (kết thúc hàng loạt), `/cc tomtat` (tóm tắt), `/cc tai` (tải file đính kèm), `/cc duthao` (soạn dự thảo)
-
-## Lưu ý & Xử lý lỗi thường gặp
-
-### uv run bắt buộc cho tất cả script Python
-Môi trường Hermes Agent dùng uv venv, các package (openai, playwright, python-docx, fitz...) chỉ có trong uv. **Tất cả script Python** đều phải gọi với `uv run python`, kể cả `congvan_status.py` và `congchuc_draft.py`. Không dùng `python` trần.
-
-### 9p mount & quyền ghi
-Thư mục `/opt/data/` là 9p mount từ Windows (Docker Desktop + WSL), chủ sở hữu root, user hermes không thể tạo thư mục con hoặc ghi file vào các thư mục chưa tồn tại trong `/opt/data/`. Khi script cố gắng tạo thư mục (attachments, screenshots, logs) sẽ gặp `Permission denied`.
-
-**Lưu ý về quyền ghi:**
-- `/opt/data/cron/cong-van-den/attachments/` → 777 ✅ (ghi được trực tiếp)
-- `/opt/data/cron/cong-van-den/action_logs/last_result.txt` → thuộc root, ❌ không ghi được
-
-**Cách 1 — `congchuc_scrape.py` (`/cc tai`)**: Thư mục attachments đã có quyền 777, nên **không cần** set `HERMES_HOME`:
-```bash
-uv run python /opt/data/scripts/congchuc/congchuc_scrape.py --download-only <số_vb>
-```
-File đính kèm lưu tại `/opt/data/cron/cong-van-den/attachments/<số_vb>/`.
-
-**Cách 2 — `congchuc_action.py` (`/cc end`)**: Vẫn **cần** `HERMES_HOME=/tmp` vì script ghi vào `action_logs/last_result.txt` (thuộc root):
-```bash
-HERMES_HOME=/tmp uv run python /opt/data/scripts/congchuc/congchuc_action.py kethuc <số_vb> [lý do]
-```
-Screenshot và log lưu tại `/tmp/cron/cong-van-den/attachments/<số_vb>/` và `/tmp/cron/cong-van-den/action_logs/`.
-
-### Lưu ý Telerik date picker (hidden input)
-Một số trang (tabid=1121 Văn bản đi) dùng Telerik RadDatePicker — input date thực tế bị **hidden**, `page.fill()` sẽ timeout vì element không visible.
-**Cách fix:** Dùng `page.evaluate()` set value bằng JavaScript thay vì `page.fill()`:
-```python
-page.evaluate(f"""
-    var el = document.getElementById('..._dateInput');
-    if (el) {{ el.value = '{date_str}'; var e = new Event('change'); el.dispatchEvent(e); }}
-""")
-```
-Script gốc `congchuc_vbdi_scrape.py` mắc lỗi này. Bản fix đã deploy ở `~/./scripts/congchuc/congchuc_vbdi_scrape_fixed.py` và cron job đã trỏ sang script fix.
-
-### Vấn đề state file split (quan trọng)
-Có HAI state file `vbden_state.json` được dùng song song:
-- **State chính** (đọc bởi `congvan_status.py` để trả lời `/cc list`): `/opt/data/cron/cong-van-den/vbden_state.json` — cập nhật bởi cron job và lệnh `congvan_status.py done/read/wip`.
-- **State /tmp** (ghi bởi `congchuc_action.py` với `HERMES_HOME=/tmp`): `/tmp/cong-van-den/cron/cong-van-den/vbden_state.json` — chỉ chứa log action script.
-
-**Hệ quả:** Sau `/cc end` state chính KHÔNG tự động sync. Bắt buộc chạy thêm `congvan_status.py done <số_vb>` sau action. Nếu bỏ qua, VB vẫn hiển thị `[new]` dù đã kết thúc trên cổng.
-
-### Giải thích lỗi thường gặp
-- **Script báo ✅ nhưng status vẫn `[new]`**: Nguyên nhân = state file split. Luôn kiểm tra trên grid portal thay vì chỉ dựa vào state local.
-- **"Không tìm thấy trên grid" (khi retry `/cc end`)**: Đây là tín hiệu THÀNH CÔNG — VB đã được xử lý, không còn trên tab Chưa xử lý. Chỉ cần sync state là xong. Nếu xảy ra ở lần chạy ĐẦU → lỗi thật (cần kiểm tra grid filter / phân trang).
-- **VB không tìm thấy ngay lần chạy đầu**: Có thể do grid phân trang — script chỉ duyệt 15 trang đầu. Hoặc grid có bộ lọc đang hiển thị tab khác.
-
-### Telerik RadDatePicker hidden input — `page.fill()` timeout
-Các grid trên congchuc.quangninh.gov.vn dùng Telerik RadControls. Input date (`<input id="..._dateInput">`) bị **hidden** — Playwright `page.fill()` sẽ timeout vì "element is not visible".
-
-**Fix:** Dùng `page.evaluate()` set value bằng JavaScript + trigger change event:
-```python
-page.evaluate(f"""
-    var el = document.getElementById('..._dateInput');
-    el.value = '{date_value}';
-    var evt = document.createEvent('HTMLEvents');
-    evt.initEvent('change', true, true);
-    el.dispatchEvent(evt);
-""")
-```
-Không dùng `page.fill()`, `page.locator().fill()`, hay `page.type()` cho các input date của Telerik.
-
-**Bài học rộng hơn:** Bất kỳ input nào trong Telerik RadGrid/RadDatePicker mà bị hidden (display:none / visibility:hidden) → dùng JS evaluate thay vì Playwright fill.
-
-### Cron quét văn bản đi — script và lỗi thường gặp
-Cron "Quet cong van di" (job `d7f9e2c1a4b6`) chạy `congchuc/congchuc_vbdi_scrape.py` với tham số `no_agent=true`. Script này quét tabid=1121 (Văn bản đi), lọc theo ngày phát hành 2 ngày gần nhất.
-
-**Lỗi phổ biến:** `page.fill()` timeout do input date hidden (xem mục Telerik ở trên). Script gốc silent catch exception → retry hết lượt → trả về rỗng → cron báo `error` dù không có output lỗi rõ.
-
-**Script fix đã deploy:**
-```bash
-# Đặt tại ~/./scripts/congchuc/congchuc_vbdi_scrape_fixed.py
-# Fix: page.evaluate() thay page.fill(), thêm --disable-dev-shm-usage --disable-gpu
-```
-Chứa đầy đủ logic gốc + JS evaluate cho date input + Chromium args bổ sung để ổn định trong Docker.
-
-**Cập nhật cron khi deploy script fix:**
-```bash
-# Cần copy script vào ~/./scripts/congchuc/ (relative path yêu cầu của cron)
-cp <path_to_fixed> ~/./scripts/congchuc/congchuc_vbdi_scrape_fixed.py
-# Sau đó update cron
-cronjob action=update job_id=d7f9e2c1a4b6 script=congchuc/congchuc_vbdi_scrape_fixed.py
-```
-
-### Chromium crash / EPIPE trong Docker
-Khi chạy Playwright trong Docker, Chromium có thể crash với lỗi `write EPIPE` (broken pipe). Nguyên nhân thường gặp:
-1. Shared memory `/dev/shm` nhỏ — thêm `--disable-dev-shm-usage`
-2. GPU không khả dụng — thêm `--disable-gpu`
-3. Zombie Chromium process từ lần chạy trước
-
-**Fix:** Luôn thêm các arg này khi launch Chromium:
-```python
-browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
-```
-Nếu vẫn EPIPE: `rm -f .playwright_storage.json` để force fresh login (storage state cũ có thể corrupted).
-
-### Định dạng output cron notification (bôi đậm)
-
-Cron jobs no_agent (`congchuc_scrape.py` cho VB đến, `congchuc_vbdi_scrape.py` cho VB đi) output trực tiếp stdout → Zalo. Để tin nhắn dễ đọc, dùng `**bold**` markdown cho các trường quan trọng trong script:
-
-| Trường | Ví dụ |
+| Lệnh | Chạy (đều bắt đầu bằng `uv run python /opt/data/skills/cc/scripts/`) |
 |---|---|
-| Số đến | `**#2534**` |
-| Số ký hiệu | `**1383/TTKSBT**` |
-| Tên đơn vị gửi/soạn thảo | `**Sở Y tế**` |
-| Số VB cũ khi cảnh báo trùng | `**#2403**` |
+| `/cc list` | `congvan_status.py list --status new` (đọc cache local) |
+| `/cc list web` | `congvan_status.py list --status new --web` (quét trực tiếp web, cooldown 30s) |
+| `/cc list --page <N>` | `congvan_status.py list --status new --page <N>` |
+| `/cc list today` | xem 1.2 |
+| `/cc end <số> [lý do]` | xem 1.3 |
+| `/cc end all` | xem 1.4 |
+| `/cc tai <số>` | `congchuc_scrape.py --download-only <số>` |
+| `/cc tomtat <số>` | `congchuc_summarize.py --so-den <số>` |
+| `/cc duthao <số>` | `congchuc_draft.py --so-den <số> --zalo` |
+| `/cc hieudinh <số>` | `congchuc_editor.py --so-den <số> --zalo` |
+| `/cc sualoi <đường_dẫn>` | `congchuc_editor.py --file-path <đường_dẫn> --zalo` |
+| `/cc vbdi <từ_khóa>` | `congchuc_vbdi_search.py <từ_khóa>` |
+| `/cc theodoi <số>` | `uv run python /opt/data/skills/cc/lib/cc_router.py "v1\|cc\|run\|theodoi\|<số>"` |
+| `/cc help` | trả lời ngay bằng bảng này |
 
-Các script này nằm ở `~/./scripts/congchuc/` (hermes-owned) — cron jobs dùng relative path `congchuc/congchuc_scrape.py` resolve đến đó. Muốn chỉnh format output thì sửa trực tiếp ở đây.
+Bỏ `--zalo` ở `duthao`/`hieudinh`/`sualoi` nếu người dùng không muốn gửi file qua Zalo.
 
-### Quan trọng
-- Các script ở `/opt/data/scripts/congchuc/` thuộc quyền root (không sửa được từ user hermes). Cron jobs dùng relative path → resolve đến `~/./scripts/congchuc/` (hermes-owned, có thể ghi).
-- **Workflow maintain script:** Copy từ `/opt/data/scripts/congchuc/` sang `~/./scripts/congchuc/`, patch bản copy, cron tự động pick up (không cần update cron job nếu relative path đã đúng).
-- Chạy lệnh mất 10-15s vì phải mở trình duyệt, login, tìm văn bản rồi thao tác
-- Socket timeout có thể xảy ra nếu network chậm — retry lần 2 nếu fail
+---
+
+## 1. Chi tiết từng lệnh
+
+### Định dạng danh sách (áp dụng cho `list`, `list web`, `list today`, `vbdi`)
+- Đánh số `1. `, `2. `; in đậm mã VB và đơn vị gửi (`**#2534**`) vì cầu Zalo chuyển `**` thành chữ đậm.
+- Dùng emoji vừa phải, để dòng trống giữa các mục cho dễ đọc.
+- Hiển thị đủ toàn bộ VB của trang hiện tại, không tự cắt bớt. Nếu kết quả có gợi ý `--page`, nhắc người dùng gõ `/cc list --page <N+1>` để xem tiếp.
+
+### 1.1 `/cc list`, `/cc list web`, `/cc list --page <N>`
+- `list` chỉ đọc cache `vbden_state.json`, không truy cập web. Nếu người dùng nghi ngờ danh sách thiếu so với web thì chuyển sang `list web`.
+- `list web` mất ~20-30s: báo trước _"⏳ Đang kết nối trực tiếp cổng công chức để quét đồng bộ (~20-30s)..."_ rồi mới chạy. Script có cooldown 30s; nếu in thông báo "vừa đồng bộ lúc ..." thì chuyển nguyên văn cho người dùng, không chạy lại.
+- Nếu script không nhận cờ `--web`/`--page` (in "Unknown command" hoặc không có output), nghĩa là tính năng chưa được triển khai trên máy này: nói thẳng với người dùng và trả danh sách từ `list --status new`.
+
+### 1.2 `/cc list today`
+Output của `list` hiện không có cột ngày, nên không lọc "hôm nay" đáng tin cậy được. Chạy `list --status new`, trả danh sách và nói rõ là chưa lọc theo ngày. Không đoán ngày từ nội dung trích yếu.
+
+### 1.3 `/cc end <số> [lý do]`
+1. Kiểm tra trạng thái: `uv run python /opt/data/skills/cc/scripts/congvan_status.py status <số>`. Nếu đã `done` thì báo người dùng và dừng.
+2. Báo "Đang kết thúc VB #<số> (~15-30s)...", rồi chạy:
+   `uv run python /opt/data/skills/cc/scripts/congchuc_action.py kethuc <số> [lý do]`
+3. Nếu script báo ✅: `congchuc_action.py` đã tự động xác minh trên grid và cập nhật state chính thành `done`.
+4. Nếu script báo ❌: chuyển nguyên văn lỗi cho người dùng, không tự ý sửa state. Riêng lỗi "Không tìm thấy văn bản ... trên danh sách grid": VB có thể đã được xử lý trên web, nằm ngoài 15 trang đầu, hoặc thuộc đơn vị khác. Hỏi người dùng có muốn đánh dấu `done` cục bộ không, chỉ làm khi họ xác nhận:
+   `uv run python /opt/data/skills/cc/scripts/congvan_status.py done <số>`
+
+### 1.4 `/cc end all`
+1. Chạy `congvan_status.py list --status new` để lấy các VB đang `new` (bỏ VB đã `done`). Nếu danh sách chia nhiều trang, lấy hết các trang.
+2. Hiển thị danh sách và hỏi: _"Có X văn bản chưa xử lý (...), bạn chắc chắn muốn kết thúc tất cả?"_. Chỉ tiếp tục khi người dùng đồng ý.
+3. Gộp các số bằng dấu phẩy và chạy MỘT lệnh batch (cùng 1 phiên trình duyệt, nhanh hơn; ước tính ~10s/VB):
+   `uv run python /opt/data/skills/cc/scripts/congchuc_action.py kethuc <số_1>,<số_2>,<số_3> [lý do]`
+4. Script đã có bước xác minh trên grid sau từng VB trước khi lưu `done`. Đọc output để biết VB nào thành công (dòng `✅ #<số>`) và VB nào thất bại (mục "Thất bại").
+   - Nếu script chạy ở môi trường chuẩn: state đã tự động cập nhật cho từng VB thành công.
+   - Nếu chạy trong môi trường có ghi đè biến môi trường state: chỉ đồng bộ state cho các VB có `✅ #<số>`:
+     ```bash
+     for vb in <các số thành công>; do
+       uv run python /opt/data/skills/cc/scripts/congvan_status.py done "$vb"
+     done
+     ```
+   Không đồng bộ VB thất bại; báo riêng danh sách và lý do cho người dùng.
+
+### 1.5 `/cc tai <số>`
+Báo _"Đang tải file đính kèm VB #<số> (~20-30s)..."_, chạy lệnh trong bảng. File lưu ở `/opt/data/cron/cong-van-den/attachments/<số>/`. Trả về tên file và dung lượng; nếu lỗi thì nêu nội dung stderr.
+
+### 1.6 `/cc tomtat <số>`
+- Script tự tải đính kèm nếu chưa có, đọc PDF/DOCX rồi gọi LLM, nên có thể mất 30-120s. Báo trước _"Đang tóm tắt VB #<số>..."_.
+- Nếu output chứa "Lỗi khi gọi AI tóm tắt" hoặc "vui lòng đợi cronjob", đọc file đính kèm bằng code Python (xem `references/tomtat-detail.md`) rồi tự tóm tắt.
+- Giới hạn định dạng: file `.doc` (Word cũ) không đọc được do thiếu công cụ, nhờ người dùng chuyển sang `.docx`/PDF; PDF scan không có lớp chữ thì cần OCR (ví dụ tesseract) hoặc người dùng gửi nội dung.
+
+### 1.7 `/cc duthao`, `/cc hieudinh`, `/cc sualoi`
+Báo đang xử lý, chạy lệnh trong bảng. `duthao` tạo dự thảo chuẩn NĐ30. `hieudinh`/`sualoi` tạo 2 file Word đối chiếu (Bản chuẩn hóa và Bản tối ưu); báo kết quả sau khi tạo xong.
+
+### 1.8 `/cc vbdi <từ_khóa>`
+Báo đang tìm, chạy lệnh, trả danh sách theo định dạng chung kèm số ký hiệu, trích yếu và đơn vị soạn thảo.
+
+### 1.9 `/cc theodoi <số>`
+Lệnh gọi router theo định dạng callback ở bảng trên; nó ghi văn bản vào danh sách theo dõi và cron quét văn bản đi sẽ báo khi thấy. Chuyển nguyên văn kết quả router cho người dùng.
+
+### 1.10 Chuyển xử lý (nâng cao, chưa có slash command)
+Chỉ khi người dùng yêu cầu rõ ràng "chuyển VB <số> cho <đơn vị>": xác nhận lại đơn vị nhận trước khi chạy:
+`uv run python /opt/data/skills/cc/scripts/congchuc_action.py chuyen <số> "<đơn_vị_nhận> [bút phê]"`
+(token đầu tiên là đơn vị nhận, phần còn lại là bút phê). Nếu ✅ thì đồng bộ `congvan_status.py wip <số>` (chuyển xử lý là `wip`, không phải `done`).
+
+---
+
+## 2. Quy trình thủ công
+
+- **Soạn văn bản góp ý**: xác định danh nghĩa đơn vị (hỏi nếu chưa rõ), đọc hoặc tóm tắt VB gốc, soạn Markdown ở `/tmp/` cho người dùng duyệt (mẫu `templates/gopy-template.md`). Chỉ xuất Word (python-docx, xem `references/soan-congvan-word.md`) sau khi người dùng xác nhận nội dung.
+- **Viết bài giới thiệu CC Skill**: dùng bài đã duyệt ở `references/gioi-thieu-cc-skill.md` làm gốc; giữ các điểm chốt trong đó.
+
+---
+
+## 3. Khi gặp lỗi
+
+Đọc các tài liệu tham chiếu trong `references/` trước khi thử cách khác:
+
+| Triệu chứng | Tài liệu tham chiếu |
+|---|---|
+| Login thất bại, mật khẩu yếu | `references/kethuc-playwright-pitfalls.md` (§1, §1b) |
+| Playwright tranh chấp, Chromium crash, `write EPIPE` | `references/kethuc-playwright-pitfalls.md` (§2) |
+| Timeout khi chạy Playwright | `references/kethuc-playwright-pitfalls.md` (§3) |
+| Không tìm thấy văn bản trên grid | `references/kethuc-playwright-pitfalls.md` (§4) |
+| Tóm tắt sai/thiếu, `congvan_detail.py` hiện nhầm VB | `references/tomtat-detail.md` |
+| Quét văn bản đi lỗi | `references/vbdi-scrape-fix.md`, `references/congchuc-scrape-reference.md` |
+
+**EPIPE & Tranh chấp phiên**: Thường do nhiều tiến trình Playwright hoặc OpenAM SSO session contention. Toàn bộ các script runtime hiện đã được đồng bộ qua lock tập trung `launch_browser_locked` (file lock cố định tại `/opt/data/cron/cong-van-den/.playwright.lock`). Nếu vẫn gặp sự cố, kiểm tra xem có tiến trình nào treo không, chờ ~30s rồi thử lại; nếu cần thì xóa `.playwright_storage.json` để đăng nhập lại. Tuyệt đối không dùng `congvan_status.py done` để "vượt" lỗi: VB trên cổng vẫn chưa xử lý nhưng bot sẽ báo sai là đã xong.
