@@ -27,14 +27,16 @@ Tất cả scripts tại `/opt/data/skills/vietlott/scripts/`:
 | Script | Mô tả |
 |---|---|
 | `vl_fetch.py` | Crawler lấy kết quả từ minhngoc.net.vn; hỗ trợ `--update`, `--range`, `--backfill`, `--out` (stdlib thuần) |
+| `vl_report.py` | Tạo báo cáo kết quả hoàn chỉnh theo template có đánh số mục dành cho cron / tin nhắn |
 | `vietlott645.py` | Kiểm định thống kê (Chi-square hiệu chỉnh + Q-stat arXiv:0806.4595) + backtest walk-forward + sinh số |
 | `draws.csv` | File cache dữ liệu lịch sử các kỳ quay (ngay, n1..n6, ky) theo thứ tự tăng dần |
 
 ## Luồng xử lý từng lệnh
 
 ### `/vl` hoặc `/vl today`
+Xuất báo cáo kết quả đầy đủ theo mẫu chuẩn có đánh số:
 ```bash
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vl_fetch.py
+/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vl_report.py
 ```
 *Tự động lấy kỳ mới nhất: nếu trước 18:30 của ngày quay thì lấy kỳ trước đó, không bị lỗi dữ liệu rỗng.*
 
