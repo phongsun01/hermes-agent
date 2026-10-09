@@ -1,23 +1,24 @@
 ---
 name: vietlott
-description: "Phân tích Vietlott Mega 6/45 — xem kết quả, kiểm định tính ngẫu nhiên, backtest chiến lược 'hot/cold/random', xác suất trúng và sinh bộ số tham khảo. Kích hoạt khi người dùng hỏi về Vietlott 6/45."
-version: "1.0.0"
+description: "Phân tích Vietlott Mega 6/45 — xem kết quả, kiểm định tính ngẫu nhiên, backtest chiến lược 'hot/cold/random', xác suất trúng và sinh bộ số tham khảo. Kích hoạt khi người dùng hỏi về Vietlott 6/45 hoặc dùng lệnh /vl."
+version: "1.1.0"
 ---
 
 # Vietlott Mega 6/45
 
-Skill phân tích Vietlott 6/45 dựa trên dữ liệu lịch sử từ minhngoc.net.vn.
+Skill phân tích Vietlott 6/45 dựa trên dữ liệu lịch sử từ minhngoc.net.vn, có cơ chế cache và cập nhật tự động.
 
-> ⚠️ **Nguyên tắc bắt buộc**: Các kỳ quay độc lập — không có phương pháp dự đoán đã được chứng minh. Jackpot: 1/8.145.060. Kỳ vọng mỗi vé luôn âm. Nói rõ điều này khi trả lời.
+> ⚠️ **Nguyên tắc bắt buộc**: Các kỳ quay độc lập — không có phương pháp dự đoán nào đánh bại được ngẫu nhiên. Xác suất Jackpot là 1/8.145.060. Kỳ vọng mỗi vé luôn âm ($EV < 0$). Luôn nói rõ điều này khi trả lời.
 
 ## Các lệnh hỗ trợ
 
-1. `/vl` hoặc `/vl today` — Kết quả kỳ gần nhất
+1. `/vl` hoặc `/vl today` — Kết quả kỳ gần nhất (tự động xét trước/sau 18:30)
 2. `/vl <DD-MM-YYYY>` — Kết quả ngày cụ thể
-3. `/vl odds` — Bảng xác suất trúng 0–6 số
-4. `/vl stats [N]` — Kiểm định tính ngẫu nhiên trên N kỳ gần nhất (mặc định 50)
-5. `/vl backtest [N]` — Backtest chiến lược hot/cold/random trên N kỳ
-6. `/vl pick [hot|cold|random]` — Sinh bộ số tham khảo
+3. `/vl odds` — Bảng xác suất trúng 0–6 số (phân phối siêu bội)
+4. `/vl stats [N]` — Kiểm định tính ngẫu nhiên trên N kỳ gần nhất (mặc định 300 kỳ từ cache `draws.csv`)
+5. `/vl backtest [N]` — Backtest chiến lược hot/cold/random trên N kỳ (mặc định 300 kỳ)
+6. `/vl pick [hot|cold|random]` — Sinh bộ số tham khảo (dùng cache nếu có)
+7. `/vl update` — Cập nhật các kỳ quay mới vào cache `draws.csv`
 
 ## Script có sẵn
 
@@ -25,17 +26,17 @@ Tất cả scripts tại `/opt/data/skills/vietlott/scripts/`:
 
 | Script | Mô tả |
 |---|---|
-| `vl_fetch.py` | Crawler lấy kết quả từ minhngoc.net.vn (stdlib thuần, không cần requests) |
-| `vietlott645.py` | Kiểm định thống kê + backtest + sinh số |
+| `vl_fetch.py` | Crawler lấy kết quả từ minhngoc.net.vn; hỗ trợ `--update`, `--range`, `--backfill`, `--out` (stdlib thuần) |
+| `vietlott645.py` | Kiểm định thống kê (Chi-square hiệu chỉnh + Q-stat arXiv:0806.4595) + backtest walk-forward + sinh số |
+| `draws.csv` | File cache dữ liệu lịch sử các kỳ quay (ngay, n1..n6, ky) theo thứ tự tăng dần |
 
 ## Luồng xử lý từng lệnh
 
 ### `/vl` hoặc `/vl today`
 ```bash
-# Tính ngày quay gần nhất (Thứ 4/6/CN), fetch trang ngày đó
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vl_fetch.py --date <DD-MM-YYYY>
+/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vl_fetch.py
 ```
-Trình bày: Kỳ #XXXXX | Ngày DD/MM/YYYY | **6 số** | Jackpot hiện tại (nếu có).
+*Tự động lấy kỳ mới nhất: nếu trước 18:30 của ngày quay thì lấy kỳ trước đó, không bị lỗi dữ liệu rỗng.*
 
 ### `/vl <date>`
 ```bash
@@ -46,66 +47,39 @@ Trình bày: Kỳ #XXXXX | Ngày DD/MM/YYYY | **6 số** | Jackpot hiện tại 
 ```bash
 /opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py odds
 ```
-Không cần dữ liệu lịch sử. Trả về bảng P(k/6 số trúng).
 
 ### `/vl stats [N]`
+Đọc trực tiếp từ file cache `draws.csv` (không cào lại mạng, mặc định $N=300$):
 ```bash
-# Bước 1: Fetch N kỳ gần nhất
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vl_fetch.py --range <N> --csv
-# → tạo file draws.csv trong thư mục hiện tại
-
-# Bước 2: Chạy kiểm định
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py stats draws.csv
+/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py stats -n <N>
 ```
 Kết quả gồm 2 kiểm định:
-- **Chi-square tần suất đã hiệu chỉnh**: X²·(N-1)/(N-K) ~ χ²(44). p < 0.05 → nghi vấn lệch.
-- **Thống kê thứ tự Q** (arXiv:0806.4595): Q ~ χ²(6) — kiểm định phân phối vị trí số. p < 0.01 → kiểm toán nhà cái.
-
-⚠️ Cần ≥ 100 kỳ để kết quả kiểm định đáng tin. Cảnh báo tự động nếu < 100.
+- **Chi-square tần suất đã hiệu chỉnh**: $X^2 \cdot (N-1)/(N-K) \sim \chi^2(44)$. $p < 0.05 \rightarrow$ nghi vấn lệch tần suất.
+- **Thống kê thứ tự Q** ([arXiv:0806.4595](file:///D:/Antigravity/Hermes/skills/vietlott/references/research-notes.md)): $Q \sim \chi^2(6)$ — kiểm định phân phối vị trí các số đã sắp xếp. $p < 0.01 \rightarrow$ kiểm toán tính công bằng của nhà đài.
 
 ### `/vl backtest [N]`
 ```bash
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vl_fetch.py --range <N> --csv
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py backtest draws.csv
+/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py backtest -n <N>
 ```
-Kết quả: z-test mỗi chiến lược (hot/cold/random). p < 0.01 mới có ý nghĩa (dùng ngưỡng Bonferroni).
+Mô phỏng walk-forward đánh giá z-score và p-value cho các chiến lược: `random`, `hot` (tần suất / CDM), `cold`. Dùng ngưỡng Bonferroni ($p < 0.01$) để tránh kết luận sai do data dredging.
 
 ### `/vl pick [mode]`
 ```bash
-# Cần có draws.csv để dùng hot/cold
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py pick --mode hot --csv draws.csv
-# Hoặc ngẫu nhiên hoàn toàn (không cần dữ liệu)
-/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py pick --mode random
+/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vietlott645.py pick --mode [hot|cold|random] -n 1
 ```
-Luôn in: *"Mọi bộ số đều có xác suất jackpot 1/8.145.060. EV mỗi vé < 0."*
 
-## Chuyển đổi ngày quay
+### `/vl update`
+```bash
+/opt/hermes/.venv/bin/python3 /opt/data/skills/vietlott/scripts/vl_fetch.py --update
+```
 
-Mega 6/45 quay **Thứ 4, Thứ 6, Chủ nhật** lúc **18:05**.
-- "hôm nay" → lấy ngày hiện tại (UTC+7), nếu chưa 18:05 thì lấy kỳ trước đó
-- "hôm qua" → ngày hôm qua
-- "07/10/2026" / "07-10-2026" → `07-10-2026`
+## Lịch quay & Cron tự động
 
-## Lưu ý trình bày
-
-- Trả lời qua Zalo: không dùng markdown, dùng emoji cho trực quan.
-- Luôn ghi rõ số kỳ (#XXXXX) và ngày để tránh nhầm.
-- Không hứa hẹn lợi nhuận, không nói "dự đoán chính xác".
-
-## 🚨 Pitfalls
-
-### Ngày chưa có kết quả
-- Trang `DD-MM-YYYY.html` tồn tại nhưng HTML không chứa `<div class="finnishN bool">` → kết quả chưa được công bố (chưa quay hoặc đang chờ).
-- Fix: lấy kỳ gần nhất trước ngày đó.
-
-### Ngày không phải ngày quay
-- `vl_fetch.py --range N` tự động chỉ lấy đúng Thứ 4/6/CN.
-- Khi dùng `--date` cho ngày không phải ngày quay → trang 404 hoặc không có số.
-
-### Cần ≥ 80 kỳ để backtest có nghĩa
-- Script tự exit với thông báo rõ nếu dữ liệu quá ít.
+- Mega 6/45 quay **Thứ 4, Thứ 6, Chủ nhật** lúc **18:05**.
+- Cron tự động cập nhật: cấu hình chạy `vl_fetch.py --update` lúc **18:45 Thứ 4/6/CN**.
 
 ## Tham khảo
 
-- `references/data-sources.md` — nguồn dữ liệu, HTML pattern, endpoint đã xác nhận
-- `references/research-notes.md` — tóm tắt hai bài arXiv làm cơ sở thống kê
+- `references/data-sources.md` — nguồn dữ liệu, URL pattern, HTML structure
+- `references/research-notes.md` — phân tích cơ sở toán học của 2 bài báo arXiv:0806.4595 và arXiv:2403.12836
+- `references/test_fixtures.py` — unit test parser đối chiếu với fixture kỳ 00642 và 01572

@@ -11,9 +11,21 @@ Lệnh:
 draws.csv: "ngay,n1..n6,ky" theo thứ tự thời gian (cũ -> mới). Chỉ cần thư viện chuẩn.
 Cơ sở: Coronel-Brizio et al., arXiv:0806.4595 (kiểm định Q); Nkomozake, arXiv:2403.12836 (CDM).
 """
-import argparse, csv, math, random, re, sys
+import argparse, csv, math, os, random, re, sys
 from collections import Counter
 from math import comb, exp, factorial
+from pathlib import Path
+
+# Đảm bảo UTF-8 cho Windows console
+if sys.stdout.encoding != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_CSV = SCRIPT_DIR / "draws.csv"
 
 N, K = 45, 6
 TOTAL = comb(N, K)  # 8,145,060
@@ -42,9 +54,15 @@ def parse_text(text):
     return rows
 
 
-def load(path):
+def load(path=None, limit=None):
+    csv_file = Path(path) if path else DEFAULT_CSV
+    if not csv_file.exists():
+        if path:
+            sys.exit(f"Không tìm thấy file: {csv_file}")
+        else:
+            sys.exit(f"Chưa có cache dữ liệu {csv_file}. Vui lòng chạy 'python vl_fetch.py --update' trước.")
     draws = []
-    with open(path, newline="", encoding="utf-8") as f:
+    with open(csv_file, newline="", encoding="utf-8") as f:
         for row in csv.reader(f):
             try:
                 nums = sorted(int(x) for x in row[1:1 + K])
@@ -52,6 +70,8 @@ def load(path):
                 continue  # header
             if len(nums) == K and all(1 <= n <= N for n in nums):
                 draws.append(nums)
+    if limit and limit > 0 and len(draws) > limit:
+        draws = draws[-limit:]
     return draws
 
 
@@ -166,11 +186,11 @@ def cmd_odds(_):
 
 
 def cmd_stats(a):
-    draws = load(a.csv)
+    draws = load(a.csv, limit=a.n)
     m = len(draws)
     f = freq(draws)
     ranked = sorted(f.items(), key=lambda x: (-x[1], x[0]))
-    print(f"Số kỳ: {m} | kỳ vọng mỗi số: {m * K / N:.1f}")
+    print(f"Số kỳ phân tích: {m} | kỳ vọng mỗi số: {m * K / N:.1f}")
     if m < 100:
         print("CẢNH BÁO: < 100 kỳ, kết quả kiểm định không đáng tin.")
     print("Nóng:", ranked[:6], "\nLạnh:", ranked[-6:])
@@ -183,13 +203,15 @@ def cmd_stats(a):
 
 
 def cmd_backtest(a):
-    backtest(load(a.csv), warm=a.warm)
+    draws = load(a.csv, limit=a.n)
+    backtest(draws, warm=a.warm)
 
 
 def cmd_pick(a):
-    f = freq(load(a.csv)) if a.csv else {i: 0 for i in range(1, N + 1)}
+    csv_file = a.csv if a.csv else (str(DEFAULT_CSV) if DEFAULT_CSV.exists() else None)
+    f = freq(load(csv_file)) if csv_file else {i: 0 for i in range(1, N + 1)}
     pool = list(range(1, N + 1))
-    m = max(f.values())
+    m = max(f.values()) if f else 0
     w = {"random": [1] * N, "hot": [f[i] + 1 for i in pool],
          "cold": [m - f[i] + 1 for i in pool]}[a.mode]
     for _ in range(a.n):
@@ -205,9 +227,23 @@ if __name__ == "__main__":
     sp = ap.add_subparsers(required=True)
     p = sp.add_parser("parse"); p.add_argument("raw"); p.set_defaults(fn=cmd_parse)
     sp.add_parser("odds").set_defaults(fn=cmd_odds)
-    p = sp.add_parser("stats"); p.add_argument("csv"); p.add_argument("--mc", type=int, default=2000); p.set_defaults(fn=cmd_stats)
-    p = sp.add_parser("backtest"); p.add_argument("csv"); p.add_argument("--warm", type=int, default=50); p.set_defaults(fn=cmd_backtest)
-    p = sp.add_parser("pick"); p.add_argument("--mode", default="random", choices=["random", "hot", "cold"])
-    p.add_argument("--n", type=int, default=1); p.add_argument("--csv"); p.set_defaults(fn=cmd_pick)
+    p = sp.add_parser("stats")
+    p.add_argument("csv", nargs="?", default=None, help="File CSV kết quả (mặc định lấy draws.csv cùng thư mục)")
+    p.add_argument("-n", "--n", type=int, default=300, help="Số kỳ gần nhất cần kiểm định (mặc định 300)")
+    p.add_argument("--mc", type=int, default=2000)
+    p.set_defaults(fn=cmd_stats)
+    
+    p = sp.add_parser("backtest")
+    p.add_argument("csv", nargs="?", default=None, help="File CSV kết quả (mặc định lấy draws.csv cùng thư mục)")
+    p.add_argument("-n", "--n", type=int, default=300, help="Số kỳ gần nhất cần backtest (mặc định 300)")
+    p.add_argument("--warm", type=int, default=50)
+    p.set_defaults(fn=cmd_backtest)
+    
+    p = sp.add_parser("pick")
+    p.add_argument("--mode", default="random", choices=["random", "hot", "cold"])
+    p.add_argument("-n", "--n", type=int, default=1, help="Số lượng bộ số cần sinh")
+    p.add_argument("--csv", default=None, help="File CSV kết quả để tính trọng số hot/cold (mặc định draws.csv)")
+    p.set_defaults(fn=cmd_pick)
+    
     a = ap.parse_args()
     a.fn(a)
