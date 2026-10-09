@@ -1,11 +1,11 @@
 # Template Thông Báo Kết Quả Vietlott Mega 6/45
 
 Template báo cáo chuẩn dành cho Cron Job `vl_update_cron` gửi qua Zalo/Messaging hoặc khi người dùng gọi `/vl` / `/vl today`.
-Báo cáo có đánh số mục rõ ràng, định dạng trực quan, tương thích hiển thị tốt trên thiết bị di động.
+Báo cáo có đánh số mục từ 1 đến 5 rõ ràng, định dạng trực quan, tương thích hiển thị tốt trên thiết bị di động.
 
 ---
 
-## Mẫu Tin Nhắn Chuẩn (Đánh Số Mục)
+## Mẫu Tin Nhắn Chuẩn (Đánh Số Mục 1 → 5)
 
 ```text
 🎰 KẾT QUẢ VIETLOTT MEGA 6/45 — KỲ #{ky:05d} ({ngay})
@@ -24,7 +24,13 @@ Báo cáo có đánh số mục rõ ràng, định dạng trực quan, tương t
    ❄️ Top số lạnh: {cold_numbers}
    ⚖️ Kiểm định ngẫu nhiên Q (arXiv:0806.4595): p = {p_q:.3f} ({q_verdict})
 
-4. BỘ SỐ THAM KHẢO KỲ TIẾP THEO:
+4. ĐÁNH GIÁ DỰ ĐOÁN KỲ NÀY:
+   (Đối chiếu bộ số gợi ý kỳ trước #{prev_ky:05d} với kết quả hôm nay)
+   - Vé Hot (CDM): {hot_eval}
+   - Vé Cold:      {cold_eval}
+   - Vé Random:    {rand_eval}
+
+5. BỘ SỐ THAM KHẢO KỲ TIẾP THEO:
    🎯 Vé Hot (CDM): [{pick_hot}]
    🎯 Vé Cold:      [{pick_cold}]
    🎲 Vé Random:    [{pick_rand}]
@@ -55,7 +61,11 @@ Báo cáo có đánh số mục rõ ràng, định dạng trực quan, tương t
    - `p_q`: p-value của thống kê thứ tự $Q$ (theo bài báo Coronel-Brizio et al. arXiv:0806.4595).
    - `{q_verdict}`: `"Chuẩn ngẫu nhiên"` nếu $p \ge 0.01$; `"Cần theo dõi thêm"` nếu $p < 0.01$.
 
-5. **Mục 4 — Bộ số tham khảo**:
+5. **Mục 4 — Đánh giá dự đoán kỳ này**:
+   - Tái lập dự đoán từ kỳ trước dựa trên dữ liệu lịch sử tính đến trước kỳ hiện tại.
+   - Đối chiếu số lượng số trùng khớp và liệt kê các số trúng (nếu trúng $\ge 3$ số thì đạt giải Ba trở lên).
+
+6. **Mục 5 — Bộ số tham khảo kỳ tiếp theo**:
    - 1 bộ số theo trọng số nóng (Bayesian CDM / Hot).
    - 1 bộ số theo trọng số lạnh (Cold).
    - 1 bộ số ngẫu nhiên thuần túy (Random).

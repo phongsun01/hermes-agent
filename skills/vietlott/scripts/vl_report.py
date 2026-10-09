@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """vl_report.py — Định dạng báo cáo kết quả Vietlott Mega 6/45 theo template chuẩn có đánh số.
 
-Dùng cho:
-- Cron job `vl_update_cron` gửi kết quả tự động qua Zalo.
-- CLI / người dùng gọi `/vl report` hoặc `/vl`.
+Bố cục 5 mục:
+  1. Bộ số trúng thưởng
+  2. Thông tin giải thưởng
+  3. Thống kê nhanh & kiểm định Q
+  4. Đánh giá dự đoán kỳ này (so kỳ trước với kỳ hiện tại)
+  5. Bộ số tham khảo kỳ tiếp theo
 """
 import math
 import random
@@ -61,7 +64,6 @@ def fetch_detailed_result(date_obj=None):
     m_s_g3 = re.search(r'id="DT6X45_S_G3"[^>]*>\s*([0-9,.]+)', html)
 
     jackpot_val = m_jp.group(1).strip() if m_jp else "12.000.000.000"
-    # Format dấu chấm phân cách hàng nghìn cho đẹp
     jackpot_val = jackpot_val.replace(",", ".")
     if not jackpot_val.endswith("đ") and not jackpot_val.endswith(" đồng"):
         jackpot_val_str = jackpot_val
@@ -85,8 +87,60 @@ def fetch_detailed_result(date_obj=None):
     }
 
 
+def evaluate_past_prediction(draws, cur_ky, cur_nums):
+    """Mục 4: Đánh giá dự đoán kỳ này bằng cách so với gợi ý từ lịch sử trước kỳ quay hiện tại."""
+    if not draws or len(draws) < 2:
+        return "Chưa đủ dữ liệu lịch sử để đánh giá.", "Chưa đủ dữ liệu.", "Chưa đủ dữ liệu.", 0
+
+    # Nếu kỳ hiện tại nằm cuối mảng draws thì tách lấy lịch sử trước nó
+    # Ngược lại, nếu chưa có trong draws thì toàn bộ draws là lịch sử trước đó
+    if draws[-1] == cur_nums:
+        hist = draws[:-1]
+        prev_ky = cur_ky - 1
+    else:
+        hist = draws
+        prev_ky = cur_ky - 1
+
+    cur_set = set(cur_nums)
+    f_hist = vietlott645.freq(hist)
+    pool = list(range(1, 46))
+    max_f = max(f_hist.values()) if f_hist else 0
+
+    # Tái lập dự đoán Hot (CDM) từ kỳ trước: lấy 6 số có tần suất cao nhất
+    order_hot = sorted(pool, key=lambda i: (f_hist[i], i), reverse=True)
+    hot_pred = set(order_hot[:6])
+    hot_hits = sorted(hot_pred & cur_set)
+
+    # Tái lập dự đoán Cold từ kỳ trước: lấy 6 số ít xuất hiện nhất
+    order_cold = sorted(pool, key=lambda i: (f_hist[i], i))
+    cold_pred = set(order_cold[:6])
+    cold_hits = sorted(cold_pred & cur_set)
+
+    # Tái lập dự đoán Random bằng seed từ số kỳ trước để kết quả có tính lặp lại (reproducible)
+    rnd_prev = random.Random(prev_ky)
+    rand_pred = set(rnd_prev.sample(pool, 6))
+    rand_hits = sorted(rand_pred & cur_set)
+
+    def _fmt_hits(hits_list):
+        if not hits_list:
+            return "Trúng 0/6 số"
+        joined = ", ".join(f"{x:02d}" for x in hits_list)
+        prize = ""
+        if len(hits_list) == 3:
+            prize = " 🥉 (Giải Ba)"
+        elif len(hits_list) == 4:
+            prize = " 🥈 (Giải Nhì)"
+        elif len(hits_list) == 5:
+            prize = " 🥇 (Giải Nhất)"
+        elif len(hits_list) == 6:
+            prize = " 🏆 (JACKPOT!)"
+        return f"Trúng {len(hits_list)}/6 số: [{joined}]{prize}"
+
+    return _fmt_hits(hot_hits), _fmt_hits(cold_hits), _fmt_hits(rand_hits), prev_ky
+
+
 def generate_report(detail=None, n_stats=30):
-    """Tạo nội dung báo cáo theo mẫu chuẩn có đánh số mục."""
+    """Tạo nội dung báo cáo theo mẫu chuẩn 5 mục đánh số."""
     if detail is None:
         detail = fetch_detailed_result()
 
@@ -113,7 +167,10 @@ def generate_report(detail=None, n_stats=30):
         p_q_str = "N/A"
         q_verdict = "Chưa đủ kỳ dữ liệu"
 
-    # Bộ số tham khảo
+    # Mục 4: Đánh giá dự đoán kỳ này
+    hot_eval, cold_eval, rand_eval, prev_ky = evaluate_past_prediction(draws, detail["ky"], detail["nums"])
+
+    # Mục 5: Bộ số tham khảo kỳ tiếp theo
     pool = list(range(1, 46))
     max_f = max(f.values()) if f else 0
     w_hot = [f[i] + 1 for i in pool]
@@ -148,7 +205,13 @@ def generate_report(detail=None, n_stats=30):
    ❄️ Top số lạnh: {cold_str}
    ⚖️ Kiểm định ngẫu nhiên Q (arXiv:0806.4595): p = {p_q_str} ({q_verdict})
 
-4. BỘ SỐ THAM KHẢO KỲ TIẾP THEO:
+4. ĐÁNH GIÁ DỰ ĐOÁN KỲ NÀY:
+   (Đối chiếu bộ số gợi ý kỳ trước #{prev_ky:05d} với kết quả hôm nay)
+   - Vé Hot (CDM): {hot_eval}
+   - Vé Cold:      {cold_eval}
+   - Vé Random:    {rand_eval}
+
+5. BỘ SỐ THAM KHẢO KỲ TIẾP THEO:
    🎯 Vé Hot (CDM): [{pick_hot}]
    🎯 Vé Cold:      [{pick_cold}]
    🎲 Vé Random:    [{pick_rand}]
