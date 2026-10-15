@@ -32,6 +32,7 @@ services:
       - HERMES_UID=${HERMES_UID:-10000}
       - HERMES_GID=${HERMES_GID:-10000}
       - TZ=Asia/Ho_Chi_Minh
+      - PATH=/command:/opt/hermes/bin:/opt/hermes/.venv/bin:/opt/data/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       # To expose the OpenAI-compatible API server beyond localhost,
       # uncomment BOTH lines (API_SERVER_KEY is mandatory for auth):
       - API_SERVER_HOST=0.0.0.0
@@ -68,6 +69,7 @@ services:
       - HERMES_UID=${HERMES_UID:-10000}
       - HERMES_GID=${HERMES_GID:-10000}
       - TZ=Asia/Ho_Chi_Minh
+      - PATH=/command:/opt/hermes/bin:/opt/hermes/.venv/bin:/opt/data/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - HERMES_GATEWAY_NO_SUPERVISE=1
     # Accessible from host at http://localhost:9119
     # --insecure is required when binding to non-localhost address inside Docker
