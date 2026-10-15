@@ -282,6 +282,8 @@ COMMAND_REGISTRY: list[CommandDef] = [
                gateway_only=True),
     CommandDef("tkbmenu", "Hiển thị menu tương tác thời khóa biểu gia đình", "Tools & Skills",
                gateway_only=True),
+    CommandDef("vlmenu", "Hiển thị menu tương tác phân tích và dự đoán Vietlott Mega 6/45", "Tools & Skills",
+               gateway_only=True, aliases=("vl",)),
     CommandDef("news", "Xem thông tin cập nhật hàng ngày (giá vàng, xăng, tỷ giá, thời tiết...)", "Tools & Skills",
                args_hint="[vang|xang|tygia|thoitiet|trieucuong|amlich|tintuc|today]",
                subcommands=("vang", "xang", "tygia", "thoitiet", "trieucuong", "amlich", "tintuc", "today")),

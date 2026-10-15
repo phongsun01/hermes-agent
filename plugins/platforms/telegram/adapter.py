@@ -4701,7 +4701,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
         for prefix, handler in (
             ("gt:", self._handle_gmail_triage_callback), ("ea:", self._handle_exec_approval_callback),
             ("sc:", self._handle_slash_confirm_callback), ("cl:", self._handle_clarify_callback),
-            ("update_prompt:", self._handle_update_prompt_callback)):
+            ("update_prompt:", self._handle_update_prompt_callback),
+            ("v1|vl|", self._handle_vietlott_callback)):
             if data.startswith(prefix):
                 await handler(query, data, cb)
                 return
@@ -4960,6 +4961,87 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
         # Sticky state verbs keep the keyboard so further actions can stack; one-shots strip it (can't fire twice).
         with contextlib.suppress(Exception):
             await query.edit_message_text(text=appended, **({} if is_state_verb else {"reply_markup": None}))
+
+    async def _handle_vietlott_callback(self, query, data: str, cb: dict[str, Any]) -> None:
+        """Handle inline callback query for Vietlott skill (prefix 'v1|vl|')."""
+        if not await self._callback_authorized(query, cb, _unauthorized()):
+            return
+        await query.answer()
+
+        try:
+            from hermes_constants import get_hermes_home
+            import subprocess
+            import json
+
+            # Find vietlott_menu.py
+            script_path = None
+            for cand in (
+                get_hermes_home() / "skills" / "vietlott" / "scripts" / "vietlott_menu.py",
+                Path(__file__).resolve().parents[3] / "skills" / "vietlott" / "scripts" / "vietlott_menu.py",
+                Path("/opt/hermes/skills/vietlott/scripts/vietlott_menu.py"),
+            ):
+                if cand.exists():
+                    script_path = cand
+                    break
+
+            if not script_path:
+                logger.error("[%s] vietlott_menu.py not found for callback %s", self.name, data)
+                await query.answer(text="⚠️ Không tìm thấy script vietlott_menu.py", show_alert=True)
+                return
+
+            from tools.environments.local import build_subprocess_env
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, str(script_path), data,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=build_subprocess_env(strip_launch_profile=True)
+            )
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=60)
+            if proc.returncode != 0:
+                err_msg = stderr_bytes.decode("utf-8", errors="replace").strip()
+                logger.error("[%s] vietlott callback failed: %s", self.name, err_msg)
+                await query.answer(text=f"⚠️ Lỗi: {err_msg[:60]}", show_alert=True)
+                return
+
+            payload = json.loads(stdout_bytes.decode("utf-8", errors="replace"))
+            res = payload.get("result", {})
+            text = res.get("text", "")
+            raw_buttons = res.get("buttons", [])
+
+            keyboard = None
+            if raw_buttons:
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard_rows = []
+                for row in raw_buttons:
+                    row_btns = []
+                    for b in row:
+                        row_btns.append(InlineKeyboardButton(text=b.get("text", ""), callback_data=b.get("callback_data", "")))
+                    if row_btns:
+                        keyboard_rows.append(row_btns)
+                if keyboard_rows:
+                    keyboard = InlineKeyboardMarkup(keyboard_rows)
+
+            formatted_text = self.format_message(text)
+            try:
+                await query.edit_message_text(
+                    text=formatted_text,
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=keyboard,
+                    **self._link_preview_kwargs()
+                )
+            except Exception as edit_err:
+                # If content identical or formatting error, fallback to raw or HTML
+                logger.debug("[%s] edit_message_text failed in vietlott callback: %s", self.name, edit_err)
+                if "Message is not modified" not in str(edit_err):
+                    await query.edit_message_text(
+                        text=text,
+                        reply_markup=keyboard
+                    )
+        except Exception as exc:
+            logger.error("[%s] Exception in _handle_vietlott_callback: %s", self.name, exc, exc_info=True)
+            with contextlib.suppress(Exception):
+                await query.answer(text=f"⚠️ Lỗi: {str(exc)[:60]}", show_alert=True)
 
     def _missing_media_path_error(self, label: str, path: str) -> str:
         """File-not-found error for MEDIA delivery; /workspace-style paths often exist only in the sandbox."""
@@ -6463,6 +6545,98 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
         await self._cache_replied_media(msg, event)
         return self._apply_telegram_group_observe_attribution(event)
 
+    async def _intercept_vietlott_command(self, msg) -> bool:
+        """Check if incoming message is /vlmenu, vlmenu, /vl or vl and send the menu keyboard directly."""
+        text = (getattr(msg, "text", "") or "").strip()
+        if not text:
+            return False
+
+        # Split command part, strip bot username if present (e.g. /vlmenu@botname)
+        cmd_candidate = text.split()[0].split("@")[0].lower()
+        if cmd_candidate not in ("/vlmenu", "vlmenu", "/vl", "vl"):
+            return False
+
+        try:
+            from hermes_constants import get_hermes_home
+            import subprocess
+            import json
+
+            script_path = None
+            for cand in (
+                get_hermes_home() / "skills" / "vietlott" / "scripts" / "vietlott_menu.py",
+                Path(__file__).resolve().parents[3] / "skills" / "vietlott" / "scripts" / "vietlott_menu.py",
+                Path("/opt/hermes/skills/vietlott/scripts/vietlott_menu.py"),
+            ):
+                if cand.exists():
+                    script_path = cand
+                    break
+
+            if not script_path:
+                logger.error("[%s] vietlott_menu.py not found for command %s", self.name, text)
+                return False
+
+            from tools.environments.local import build_subprocess_env
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, str(script_path), "/vlmenu",
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=build_subprocess_env(strip_launch_profile=True)
+            )
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=30)
+            if proc.returncode != 0:
+                logger.error("[%s] vietlott_menu failed: %s", self.name, stderr_bytes.decode("utf-8", errors="replace"))
+                return False
+
+            payload = json.loads(stdout_bytes.decode("utf-8", errors="replace"))
+            res = payload.get("result", {})
+            menu_text = res.get("text", "")
+            raw_buttons = res.get("buttons", [])
+
+            keyboard = None
+            if raw_buttons:
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard_rows = []
+                for row in raw_buttons:
+                    row_btns = []
+                    for b in row:
+                        row_btns.append(InlineKeyboardButton(text=b.get("text", ""), callback_data=b.get("callback_data", "")))
+                    if row_btns:
+                        keyboard_rows.append(row_btns)
+                if keyboard_rows:
+                    keyboard = InlineKeyboardMarkup(keyboard_rows)
+
+            chat_id = getattr(getattr(msg, "chat", None), "id", None)
+            thread_id = getattr(msg, "message_thread_id", None)
+            chat_type = getattr(getattr(msg, "chat", None), "type", None)
+            msg_id = getattr(msg, "message_id", None)
+
+            send_kwargs = {
+                "chat_id": int(chat_id),
+                "text": self.format_message(menu_text),
+                "parse_mode": ParseMode.MARKDOWN_V2,
+                "reply_markup": keyboard,
+                **self._link_preview_kwargs()
+            }
+            is_private_chat = str(getattr(chat_type, "value", chat_type)).lower() in {
+                "private", str(ChatType.PRIVATE).lower(), str(getattr(ChatType.PRIVATE, "value", ChatType.PRIVATE)).lower()
+            }
+            if thread_id is not None:
+                meta = {"thread_id": str(thread_id)}
+                reply_to_id = None
+                if is_private_chat and msg_id is not None:
+                    reply_to_id = send_kwargs["reply_to_message_id"] = int(msg_id)
+                    meta["telegram_dm_topic_reply_fallback"] = True
+                send_kwargs.update(self._thread_kwargs_for_send(
+                    str(chat_id), str(thread_id), meta, reply_to_message_id=reply_to_id, reply_to_mode=self._reply_to_mode
+                ))
+
+            await self._send_message_with_thread_fallback(**send_kwargs)
+            return True
+        except Exception as exc:
+            logger.error("[%s] Error intercepting vietlott command: %s", self.name, exc, exc_info=True)
+            return False
+
     async def _handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text; buffers client-split chunks into one MessageEvent."""
         msg = self._effective_update_message(update)
@@ -6473,6 +6647,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
             self._log_blocked_user(msg)
             return
         if not self._gate_or_observe(msg, update, MessageType.TEXT):
+            return
+        if await self._intercept_vietlott_command(msg):
             return
         await self._ensure_forum_commands(update.message)
         self._enqueue_text_event(await self._build_triggered_event(msg, update, MessageType.TEXT))
@@ -6486,6 +6662,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
             return
         if not self._is_user_authorized_from_message(msg):
             self._log_blocked_user(msg)
+            return
+        if await self._intercept_vietlott_command(msg):
             return
         await self._ensure_forum_commands(msg)
         event = await self._build_triggered_event(msg, update, MessageType.COMMAND)

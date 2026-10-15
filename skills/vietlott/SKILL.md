@@ -29,6 +29,7 @@ Trang kết quả theo ngày: `.../mega-6x45/DD-MM-YYYY.html` (HTML tĩnh).
    - Với `--csv`: ước lượng số vé bán từ số giải (MLE Poisson trên giải 3–6) và hồi quy $\ln(\text{vé}) = a + b \cdot \ln(\text{jackpot})$ để dự đoán $\lambda$ cho jackpot kỳ tới kèm dải P10–P90. Kèm jackpot hòa vốn. Báo rõ số tiền kỳ vọng mất trên mỗi vé.
 5. `python vietlott645.py odds` — bảng xác suất trúng 0–6 số. `pick` — sinh bộ số tham khảo.
 6. `python vl_report.py` — tạo báo cáo tổng hợp 5 mục chuẩn format (kết quả, giải thưởng, thống kê Q, đánh giá dự đoán kỳ trước, gợi ý kỳ tới).
+7. **Telegram Interactive Menu**: Lệnh `/vlmenu` (hoặc `/vl`, `vlmenu`) mở giao diện Inline Keyboard trực quan tương tác 1 chạm trên Telegram (`vietlott_menu.py`).
 
 Lưu ý `ev`: $\lambda$ ước lượng từ số giải bị thiên lệch khi bộ số quay ra được nhiều người chọn; mức giải/thuế đặt ở `PRIZE`/`TAX_*` trong `vietlott645.py`, đối chiếu theo thể lệ hiện hành.
 
