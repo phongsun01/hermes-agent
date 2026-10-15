@@ -1,4 +1,4 @@
-#!/command/with-contenv sh
+#!/command/with-contenv /bin/sh
 # shellcheck shell=sh
 # Container-boot reconciliation of per-profile gateway s6 services.
 #

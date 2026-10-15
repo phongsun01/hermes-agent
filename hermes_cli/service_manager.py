@@ -441,7 +441,7 @@ class S6ServiceManager:
         stack.
         """
         lines = [
-            "#!/command/with-contenv sh",
+            "#!/command/with-contenv /bin/sh",
             "# shellcheck shell=sh",
             "set -e",
             "export HOME=/opt/data",
@@ -492,7 +492,7 @@ class S6ServiceManager:
         from gateway.restart import GATEWAY_FATAL_CONFIG_EXIT_CODE
         code = GATEWAY_FATAL_CONFIG_EXIT_CODE
         return (
-            "#!/command/with-contenv sh\n"
+            "#!/command/with-contenv /bin/sh\n"
             "# shellcheck shell=sh\n"
             "# $1 = exit code from the run script.\n"
             f"# Exit {code} (EX_CONFIG) = fatal config error — don't restart.\n"
@@ -513,7 +513,7 @@ class S6ServiceManager:
         ``1`` and the log dir rather than before ``1``."""
         prof = shlex.quote(profile)
         return (
-            f"#!/command/with-contenv sh\n"
+            f"#!/command/with-contenv /bin/sh\n"
             f"# shellcheck shell=sh\n"
             f': "${{HERMES_HOME:=/opt/data}}"\n'
             f'log_dir="$HERMES_HOME/logs/gateways/{prof}"\n'

@@ -1,4 +1,4 @@
-#!/command/with-contenv sh
+#!/command/with-contenv /bin/sh
 # shellcheck shell=sh
 # Dashboard service. Always declared so s6 has a supervised slot; if
 # HERMES_DASHBOARD isn't truthy the run script exits cleanly and the
