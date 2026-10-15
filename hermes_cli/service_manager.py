@@ -456,6 +456,10 @@ class S6ServiceManager:
         # Generalized supervisor marker — same meaning for the profile-redirect guard in
         # hermes_cli.main._apply_profile_override; kept alongside the s6 one for back-compat.
         lines.append("export HERMES_SUPERVISED_CHILD=1")
+        # Guard: if the container was launched with HERMES_GATEWAY_NO_SUPERVISE=1,
+        # the gateway is already running as the Docker CMD (main-wrapper.sh).
+        # Exit immediately so s6-supervise doesn't spawn a duplicate.
+        lines.append('[ "${HERMES_GATEWAY_NO_SUPERVISE:-}" = "1" ] && exit 0')
         # ``--replace`` makes the supervised gateway authoritative for its HERMES_HOME. Without it
         # a gateway started OUTSIDE s6 (stray ``hermes gateway run``, an agent action, the Open
         # WebUI helper) grabs the PID lock first; the slot then hits "Another gateway instance is

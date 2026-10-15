@@ -367,6 +367,9 @@ COPY --link --chmod=a+rX,go-w . .
 # The shared assembler binds the prepared environment and frontend products.
 RUN /opt/hermes/.venv/bin/python -m docker.build_agent
 
+# Install custom dependencies for VN automation skills (XSMB, CC, MSC, Vietlott)
+RUN /usr/local/bin/python3 -c 'from pm import installed_package; import subprocess; subprocess.run([str(installed_package("uv").binary), "pip", "install", "--python", "/opt/hermes/.venv", "openpyxl", "pandas"], check=True)'
+
 # Wire the exec shim and install-method stamp.  Files under /opt/hermes are
 # already root-owned (COPY, dep assembly, npm install all run as root) and
 # read-only for the hermes user (go-w from the --chmod above).

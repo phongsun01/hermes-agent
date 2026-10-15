@@ -36,6 +36,8 @@ _HERMES_CORE_TOOLS = [
     "computer_use",
     # Service-gated connector account status and authorization links.
     "manage_connections",
+    # XSMB & TKB
+    "get_xsmb", "predict_xsmb", "get_tkb",
 ]
 
 # Webhook payloads are untrusted third-party content: no file/system execution.
