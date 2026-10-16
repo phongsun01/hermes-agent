@@ -789,4 +789,44 @@ if [ -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}" ] && \
     fi
 fi
 
+# --- Ensure uv CLI is in /opt/hermes/bin ---
+if [ ! -e "$INSTALL_DIR/bin/uv" ]; then
+    _uv_bin=$(find "$INSTALL_DIR/tools" -maxdepth 2 -name "uv" -type f -perm -111 2>/dev/null | head -n 1)
+    if [ -n "$_uv_bin" ] && [ -x "$_uv_bin" ]; then
+        ln -sf "$_uv_bin" "$INSTALL_DIR/bin/uv"
+    fi
+fi
+
+# --- Ensure Playwright package and Chromium headless shell symlink exist ---
+if [ -f "$INSTALL_DIR/.venv/bin/python" ]; then
+    if ! "$INSTALL_DIR/.venv/bin/python" -c "import playwright" 2>/dev/null; then
+        if [ -x "$INSTALL_DIR/bin/uv" ]; then
+            "$INSTALL_DIR/bin/uv" pip install --python "$INSTALL_DIR/.venv/bin/python" playwright 2>/dev/null || true
+        fi
+    fi
+    # Map baked Chromium into Playwright's expected headless shell folder if missing
+    _baked_chrome=$(cat /etc/hermes/agent-browser-executable-path 2>/dev/null || true)
+    if [ -n "$_baked_chrome" ] && [ -x "$_baked_chrome" ]; then
+        for _pw_dir in "$INSTALL_DIR/tools"/chromium_headless_shell-*; do
+            if [ -d "$_pw_dir" ]; then
+                _target="$_pw_dir/chrome-headless-shell-linux64/chrome-headless-shell"
+                if [ ! -e "$_target" ]; then
+                    mkdir -p "$(dirname "$_target")"
+                    ln -sf "$_baked_chrome" "$_target"
+                fi
+            fi
+        done
+        for _pw_dir in "$INSTALL_DIR/tools"/chromium-*; do
+            if [ -d "$_pw_dir" ]; then
+                _pw_shell_dir="$INSTALL_DIR/tools/chromium_headless_shell-$(basename "$_pw_dir" | sed 's/chromium-//')"
+                _target="$_pw_shell_dir/chrome-headless-shell-linux64/chrome-headless-shell"
+                if [ ! -e "$_target" ]; then
+                    mkdir -p "$(dirname "$_target")"
+                    ln -sf "$_baked_chrome" "$_target"
+                fi
+            fi
+        done
+    fi
+fi
+
 echo "[stage2] Setup complete; starting user services"
