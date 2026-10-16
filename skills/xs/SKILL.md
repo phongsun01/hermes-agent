@@ -122,5 +122,6 @@ Script cron: `~/.hermes/scripts/xsmb_cron.py` (no_agent mode — stdout gửi th
 Xem trạng thái: `cronjob(action='list')`
 
 ## Tham khảo
+- `references/report-template.md` — template định dạng thông báo kết quả chuẩn dành cho cron job và tin nhắn Zalo
 - `references/data-sources.md` — danh sách nguồn dữ liệu XSMB đã kiểm tra
 - `references/plugin-architecture.md` — kiến trúc plugin Hermes, cách đăng ký tool, xử lý dependencies
