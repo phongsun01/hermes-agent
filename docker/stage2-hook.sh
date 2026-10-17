@@ -829,4 +829,10 @@ if [ -f "$INSTALL_DIR/.venv/bin/python" ]; then
     fi
 fi
 
+# --- Ensure cron scripts are populated from legacy/home location if missing ---
+if [ -d "$HERMES_HOME/home/.hermes/scripts" ] && [ -d "$HERMES_HOME/scripts" ]; then
+    cp -rn "$HERMES_HOME/home/.hermes/scripts/"* "$HERMES_HOME/scripts/" 2>/dev/null || true
+    chown -R hermes:hermes "$HERMES_HOME/scripts" 2>/dev/null || true
+fi
+
 echo "[stage2] Setup complete; starting user services"
