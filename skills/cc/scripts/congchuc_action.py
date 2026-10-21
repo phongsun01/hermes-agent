@@ -86,6 +86,9 @@ def execute_action(action_type, so_den, extra_args):
     so_den = str(so_den).strip()
     print(f"Executing remote {action_type} for document #{so_den}...")
     
+    screenshot_dir = os.path.join(_hermes_home, "cron", "cong-van-den", "attachments", so_den if so_den else "bulk")
+    os.makedirs(screenshot_dir, exist_ok=True)
+    
     STORAGE_STATE_FILE = os.path.join(_hermes_home, "cron", "cong-van-den", ".playwright_storage.json")
     
     try:
@@ -515,11 +518,12 @@ def execute_action(action_type, so_den, extra_args):
     except Exception as e:
         err_msg = f"❌ Thất bại khi thực hiện '{action_type}' cho văn bản #{so_den}: {str(e)}"
         notify_result(err_msg)
-        # Capture error screenshot
+        # Capture error screenshot safely
         try:
-            err_shot = os.path.join(screenshot_dir, "error.png")
-            page.screenshot(path=err_shot)
-        except:
+            if 'screenshot_dir' in locals() and 'page' in locals() and page:
+                err_shot = os.path.join(screenshot_dir, "error.png")
+                page.screenshot(path=err_shot)
+        except Exception:
             pass
         sys.exit(1)
 
