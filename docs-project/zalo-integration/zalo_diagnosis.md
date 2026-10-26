@@ -1,6 +1,6 @@
 # 🔍 Chẩn đoán Zalo Plugin — Hermes Gateway
 
-> Thời điểm cập nhật: 2026-08-18 07:50 ICT
+> Thời điểm cập nhật: 2026-10-15 12:20 ICT
 
 ---
 
@@ -28,6 +28,8 @@
 | Bridge-watchdog | ✅ **Forever** | Không max retries, restart 3s, health poll 10s + auto /relogin |
 | Message dedup | ✅ **4 layers** | server.js (isSelf + messageId ring + **single-client SSE**) + adapter.py (messageId ring) |
 | `sseClients` | ✅ **Single-client mode → 409 gate** | 409 reject thay vì evict; Docker phantom bị từ chối tại HTTP level |
+| Group Catchup | ✅ **Hoạt động ổn định** (Fix 31) | Dùng `getGroupChatHistory` chính thức, circuit breaker ngắt khi 429, auto-prune 404 sau 3 lần |
+| DM Catchup | ⚠️ **Safe Degrade** (Fix 31) | REST `/api/message/loadmsg` trả 400 Bad Request trên web endpoint. DM dựa vào live websocket + fast reconnect |
 | Windows Firewall | ✅ **Rule port 8787** (Fix 23) | Inbound rule cho Docker → host bridge traffic |
 | s6-overlay shebang (CRLF) | ✅ **Đã sửa (Fix 28)** | Chuyển đổi dòng CRLF -> LF cho các script khởi động trong thư mục `docker/` trên host Windows |
 
@@ -1217,6 +1219,67 @@ Hàng trăm dòng 429 liên tục trong nhiều phút.
    INFO gateway.run: Gateway running with 3 platform(s)
    ```
    Trạng thái SSE client trên bridge chuyển sang `sseClients: 1` và `state: READY`.
+
+
+### 30. Mất kết nối Zalo sau khi nâng cấp mã nguồn lên v0.22.1 (2026-10-15)
+
+**Vấn đề:**
+- Sau khi nâng cấp mã nguồn Hermes lên tag `v0.22.1` và build lại Docker container, bot Zalo không phản hồi tin nhắn.
+- Bridge Node.js vẫn báo `loggedIn: true` nhưng `sseClients: 0`.
+- Cron báo lỗi `WARNING cron.scheduler: Job '...': unknown platform 'zalo'`.
+- Gateway chỉ kết nối `telegram` và `api_server`, hoàn toàn không khởi tạo kết nối tới Zalo (`Gateway running with 2 platform(s)`).
+
+**Nguyên nhân:**
+- **Thiếu plugin `zalo-platform` trên user home:** Thư mục `C:\Users\Desktop\.hermes\plugins\zalo-platform` chưa được sao chép/khôi phục từ `D:\Antigravity\hermes-zalo-plugin\hermes-plugin` sang data directory (`~/.hermes/plugins/`).
+- **Thiếu cấu hình `platforms.zalo.enabled: true`:** Trong `C:\Users\Desktop\.hermes\config.yaml`, mục `plugins.enabled` có `zalo-platform` nhưng thiếu block:
+  ```yaml
+  platforms:
+    zalo:
+      enabled: true
+  ```
+  Theo cơ chế 2 lớp của Hermes Gateway (xem mục 12):
+  1. `plugins.enabled` nạp plugin và đăng ký adapter factory vào `platform_registry`.
+  2. `platforms.<name>.enabled: true` chỉ thị cho Gateway thực sự khởi tạo và kết nối adapter đó khi boot. Nếu thiếu 1 trong 2 thì Gateway sẽ bỏ qua platform.
+
+**Cách khắc phục:**
+1. Đồng bộ lại plugin `zalo-platform` sang thư mục cấu hình user:
+   ```powershell
+   Copy-Item -Path "D:\Antigravity\hermes-zalo-plugin\hermes-plugin" -Destination "C:\Users\Desktop\.hermes\plugins\zalo-platform" -Recurse -Force
+   ```
+2. Thêm khai báo `platforms.zalo.enabled: true` vào `~/.hermes/config.yaml`:
+   ```yaml
+   platforms:
+     zalo:
+       enabled: true
+   ```
+3. Khởi động lại container `hermes`:
+   ```powershell
+   docker restart hermes
+   ```
+4. Kiểm tra `agent.log` và endpoint bridge:
+   - Gateway log: `INFO gateway.run: ✓ zalo connected` và `Gateway running with 3 platform(s)`.
+   - Bridge `/health`: `sseClients: 1` và `state: READY`.
+
+### 31. Catchup & Replay Engine Hardening và Trạng thái DM Safe Degrade (2026-10-22)
+
+**Bối cảnh & Vấn đề:**
+- Khi bot Zalo reconnect hoặc khởi động lại, catchup scan quét lại lịch sử các thread theo checkpoint.
+- Nếu có thread group bị kick/rời nhóm, API trả về `404 Not Found`. Do thiếu pruning, mỗi lần reconnect bot lại quét lại đúng các thread 404 này, gây vòng lặp WAF rate-limit `429 Too Many Requests` và Zalo server ngắt kết nối WebSocket (`1000 NORMAL_CLOSURE`).
+- Ban đầu một số tài liệu dự định dùng `/api/message/loadmsg` cho DM. Tuy nhiên, probe thực tế ngày 2026-10-22 với đúng session `zpw_cht` (`https://lp6-msg.chat.zalo.me`) và AES mã hoá trả về `400 Bad Request` do thiếu các tham số schema nội bộ chỉ có trên web client đầy đủ.
+
+**Giải pháp đã triển khai:**
+1. **Group Catchup chính thức (`zaloClient.js`)**:
+   - Sử dụng duy nhất `this.api.getGroupChatHistory(threadId, count)` chuẩn từ `zca-js`.
+   - **429 Circuit Breaker**: Nếu gặp lỗi `429` / rate limit, `throw` ngay lập tức để dừng toàn bộ pass catchup hiện tại, bảo vệ tài khoản khỏi bị Zalo WAF kick.
+2. **Quản lý Dead Thread & Pruning (`message-repository.js`, `zaloClient.js`)**:
+   - Thêm cột `is_hidden` vào bảng `threads`.
+   - `getCheckpointsForCatchup` lọc nghiêm ngặt `WHERE is_hidden = 0`.
+   - Cơ chế 404-tracker với debounce 3 phút (180s): thread bị 404 liên tiếp 3 lần sẽ tự động ẩn (`hideThread(id)`).
+   - Auto-unhide: Khi có tin nhắn live (`saveIncoming` hoặc `upsertCheckpoint`), thread tự động được mở ẩn (`is_hidden = 0`).
+3. **Trạng thái DM Catchup (Safe Degrade)**:
+   - Vì Zalo Web API không công khai schema hoàn chỉnh cho `loadmsg` DM cá nhân, `_fetchThreadHistory` cho DM được đưa về stub an toàn (trả về `[]`).
+   - Loại bỏ hoàn toàn request phỏng đoán không mã hoá tới `wpa.chat.zalo.me` để tránh tự gây lỗi 404/429.
+   - Tin nhắn DM 1-1 tiếp tục được tiếp nhận realtime qua WebSocket live (`listener.on("message")`) và lưu vào SQLite bình thường.
 
 ---
 
