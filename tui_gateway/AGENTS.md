@@ -89,7 +89,7 @@ profile's does not, and that `os.environ` is unchanged afterwards.
 | Approvals | `prompts.tsx` | server→client request `approval` → response `{choice}` |
 | Clarify / sudo / secret | `prompts.tsx`, `maskedPrompt.tsx` | server→client requests `clarify` / `sudo` / `secret` (`server_requests.py`) |
 | Session picker | `sessionPicker.tsx` | `session.list` / `session.resume` |
-| Slash commands | local handler + fallthrough | `slash.exec` → `_SlashWorker`; `command.dispatch` |
+| Slash commands | local handler + fallthrough | `slash.exec` → `_SlashWorker` (`slash_worker_client.py`); `command.dispatch` |
 | Completions | `useCompletion` hook | `complete.slash`, `complete.path` (under a non-local `terminal.backend`, `complete.path` lists the directory through the session's terminal backend — never the gateway host, whose same-named tree would look right and be wrong) |
 | Theming | `theme.ts` + `branding.tsx` | `gateway.ready` carries skin data |
 | Connection operations (desktop card) | desktop `store/connection-request.ts` | `connection.request` → `connection.update`* → `connection.respond {op_id}`; `connectors.operation.status`. The op lives in `tools/connectors/live.py`; the card never parks the tool thread (`methods_connectors.py`). |
@@ -166,9 +166,11 @@ that message through `prompt.submit`, retaining their own durable input identity
 Resolution itself does not start a turn or change the cached system prompt; the
 normal durable admission path owns FIFO, retries, approvals, and execution.
 
-All other commands return `unsupported_command`, including shell quick commands,
-plugin execution, bundles, runtime/config mutation, approval/secret slash shortcuts,
-and lifecycle commands. Use the existing generation-bound control RPCs where
+`type: exec` quick commands and plugin slash commands require `session:control` and
+run through the messaging gateway's own dispatch (`gateway/run_inbound_hooks.py`: slash
+access policy, 30 s sanitized-env exec with redacted output, plugin session env).
+All other commands return `unsupported_command`, including bundles, runtime/config
+mutation, approval/secret slash shortcuts, and lifecycle commands. Use the existing generation-bound control RPCs where
 available. Catalog presence alone does not imply execution support. No legacy
 fallback is installed on the canonical transport.
 
