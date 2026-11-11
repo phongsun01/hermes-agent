@@ -7,7 +7,7 @@ import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 ENDPOINT = "/o/egp-portal-contractor-selection-v2/services/smart/search"
 RESOLVE_SCRIPT = str(Path(__file__).resolve().parent / "msc_unit_resolve.py")
 TZ7 = timezone(timedelta(hours=7))
@@ -152,14 +152,12 @@ def main():
     ap = argparse.ArgumentParser(description="KH precise list by unit (resolved by name or id)")
     ap.add_argument("query", help="Tên/alias đơn vị hoặc ID vn...")
     ap.add_argument("-n", type=int, default=10)
-    ap.add_argument("--token", default="")
-    ap.add_argument("--cookie", default="")
     ap.add_argument("--date-from", default="")
     ap.add_argument("--date-to", default="")
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     if bool(args.date_from) ^ bool(args.date_to):
         raise SystemExit("date-from và date-to phải đi cùng nhau")

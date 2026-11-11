@@ -45,13 +45,11 @@ def run_detail(pl: str, token: str = "", cookie: str = "") -> dict:
 def main():
     ap = argparse.ArgumentParser(description="Export KHLCNT by PL to markdown")
     ap.add_argument("--pl", required=True)
-    ap.add_argument("--token", default="")
-    ap.add_argument("--cookie", default="")
     ap.add_argument("--out-root", default=str(Path(__file__).parent.parent / "reports/msc/khlcnt"))
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     pl = (args.pl or "").strip().upper()
     if not valid_pl(pl):

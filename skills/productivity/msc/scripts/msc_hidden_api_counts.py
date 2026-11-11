@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 import subprocess
 
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 ENDPOINT = "/o/egp-portal-contractor-selection-v2/services/smart/search"
 TZ7 = timezone(timedelta(hours=7))
 
@@ -105,14 +105,12 @@ def fetch_total(token: str, noti: str, day: datetime, cookie: str = '') -> int:
 
 def main():
     ap = argparse.ArgumentParser(description="Query hidden smart/search endpoint for KHLCNT/TBMT counts")
-    ap.add_argument("--token", default="", help="reCAPTCHA token from active browser session")
     ap.add_argument("--date", default="today", help="today|yesterday|YYYY-MM-DD")
     ap.add_argument("--noti", choices=["khlcnt", "tbmt"], required=True)
-    ap.add_argument("--cookie", default="", help="Optional Cookie header if needed")
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     now = datetime.now(TZ7)
     if args.date == "today":

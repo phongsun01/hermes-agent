@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 import subprocess
 
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 ENDPOINT = "/o/egp-portal-contractor-selection-v2/services/smart/search"
 TZ7 = timezone(timedelta(hours=7))
 
@@ -134,19 +134,17 @@ def fetch(token: str, kind: str, unit_id: str, n: int, day_from: datetime | None
 
 def main():
     ap = argparse.ArgumentParser(description="List TBMT/KH by unit id from MSC hidden API")
-    ap.add_argument("--token", default="")
     ap.add_argument("--kind", required=True, choices=["tbmt", "kh"])
     ap.add_argument("--unit-id", required=True)
     ap.add_argument("-n", type=int, default=10)
     ap.add_argument("--date-from", default="")
     ap.add_argument("--date-to", default="")
-    ap.add_argument("--cookie", default="")
     ap.add_argument("--exclude-case-khkq", action="store_true", help="TBMT only: loại bản ghi có caseKHKQ=1")
     ap.add_argument("--entity-field", default="procuringEntityCode", choices=["procuringEntityCode", "investorCode"], help="Field đơn vị để lọc")
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     df = datetime.strptime(args.date_from, "%Y-%m-%d").replace(tzinfo=TZ7) if args.date_from else None
     dt = datetime.strptime(args.date_to, "%Y-%m-%d").replace(tzinfo=TZ7) if args.date_to else None

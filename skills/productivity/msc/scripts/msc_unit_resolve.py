@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 MAP_PATH = Path('./memory/msc-unit-map.json')
-LIVE_URL = 'https://muasamcong.mpi.gov.vn/o/egp-portal-bid-solicitor-approved/services/um/lookup-orgInfo'
+LIVE_URL = 'https://muasamcong.mof.gov.vn/o/egp-portal-bid-solicitor-approved/services/um/lookup-orgInfo'
 
 
 def fold(s: str) -> str:
@@ -53,8 +53,8 @@ def live_lookup(org_name_or_code: str, page_size: int = 10):
         '-H', 'User-Agent: Mozilla/5.0',
         '-H', 'Accept: application/json, text/plain, */*',
         '-H', 'Content-Type: application/json',
-        '-H', 'Origin: https://muasamcong.mpi.gov.vn',
-        '-H', 'Referer: https://muasamcong.mpi.gov.vn/web/guest/bid-solicitor-approval',
+        '-H', 'Origin: https://muasamcong.mof.gov.vn',
+        '-H', 'Referer: https://muasamcong.mof.gov.vn/web/guest/bid-solicitor-approval',
         '--data-raw', body,
         LIVE_URL,
     ]

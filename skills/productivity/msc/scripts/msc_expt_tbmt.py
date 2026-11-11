@@ -45,13 +45,11 @@ def run_detail(ib: str, token: str = "", cookie: str = "") -> dict:
 def main():
     ap = argparse.ArgumentParser(description="Export TBMT by IB to markdown (v3)")
     ap.add_argument("--ib", required=True)
-    ap.add_argument("--token", default="")
-    ap.add_argument("--cookie", default="")
     ap.add_argument("--out-root", default=str(Path(__file__).parent.parent / "reports/msc/tbmt"))
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     ib = (args.ib or "").strip().upper()
     if not valid_ib(ib):

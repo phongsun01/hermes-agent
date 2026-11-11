@@ -5,7 +5,7 @@ import os
 import subprocess
 from copy import deepcopy
 
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 ENDPOINT = "/o/egp-portal-personal-page/services/smart/search_prc"
 
 TAB_PRESETS = {
@@ -141,13 +141,12 @@ def main():
     ap.add_argument("--tab", required=True, choices=sorted(TAB_PRESETS.keys()))
     ap.add_argument("--keyword", required=True)
     ap.add_argument("--keyword-not", default="")
-    ap.add_argument("--cookie", default="", help="Optional session cookie header")
     ap.add_argument("--base", default=BASE)
     ap.add_argument("--page-size", type=int, default=20)
     ap.add_argument("--page", type=int, default=0)
     ap.add_argument("--print-payload-only", action="store_true")
     args = ap.parse_args()
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     payload = build_payload(args.tab, args.keyword, args.keyword_not, args.page_size, args.page)
     if args.print_payload_only:

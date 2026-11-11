@@ -10,12 +10,10 @@ import subprocess
 def main():
     ap = argparse.ArgumentParser(description="Unified /exp for PL or IB")
     ap.add_argument("--code", required=True, help="PL... or IB...")
-    ap.add_argument("--token", default="")
-    ap.add_argument("--cookie", default="")
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
     code = (args.code or "").strip().upper()
 
     scripts_dir = Path(__file__).resolve().parent

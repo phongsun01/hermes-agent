@@ -30,7 +30,8 @@
 | `sseClients` | ✅ **Single-client mode → 409 gate** | 409 reject thay vì evict; Docker phantom bị từ chối tại HTTP level |
 | Group Catchup | ✅ **Hoạt động ổn định** (Fix 31) | Dùng `getGroupChatHistory` chính thức, circuit breaker ngắt khi 429, auto-prune 404 sau 3 lần |
 | DM Catchup | ⚠️ **Safe Degrade** (Fix 31) | REST `/api/message/loadmsg` trả 400 Bad Request trên web endpoint. DM dựa vào live websocket + fast reconnect |
-| Windows Firewall | ✅ **Rule port 8787** (Fix 23) | Inbound rule cho Docker → host bridge traffic |
+| Windows Firewall | ✅ **Rule port 8787** (Fix 23 & Fix 34) | Inbound rule TCP 8787 cho phép Docker (`192.168.65.254`) kết nối vào host bridge |
+| Markdown Parser | ✅ **Chính xác (Fix 34)** | Bóc tách tuần tự (sequential accumulative regex), tính offset chuẩn xác không bị lệch 1-2 ký tự |
 | s6-overlay shebang (CRLF) | ✅ **Đã sửa (Fix 28)** | Chuyển đổi dòng CRLF -> LF cho các script khởi động trong thư mục `docker/` trên host Windows |
 
 ---
@@ -1281,6 +1282,102 @@ Hàng trăm dòng 429 liên tục trong nhiều phút.
    - Loại bỏ hoàn toàn request phỏng đoán không mã hoá tới `wpa.chat.zalo.me` để tránh tự gây lỗi 404/429.
    - Tin nhắn DM 1-1 tiếp tục được tiếp nhận realtime qua WebSocket live (`listener.on("message")`) và lưu vào SQLite bình thường.
 
+### 32. Treo Bridge do đụng độ Process (Zombie collision) và Sửa triệt để DM loadmsg (2026-10-28)
+
+**Vấn đề:**
+- Bot Zalo thỉnh thoảng bị treo, không phản hồi hoặc phản hồi lặp tin (double responses).
+- Kiểm tra `/health` thấy `state: "DISCONNECTED"` với `historyFetchErrors` tăng cao.
+- Kiểm tra process phát hiện có 2 phiên bản `server.js` chạy song song (PID cũ từ ngày trước chiếm loopback `127.0.0.1:8787`, còn instance mới chiếm `0.0.0.0:8787`), gây tranh chấp session Zalo WebSocket và phản hồi kép.
+- Đồng thời `lib/message-repository.js` vẫn còn 2 điểm gọi `api.callRaw("loadmsg")` cho DM (`getRecentMessages` và `syncDMHistory`), gây lỗi `unknown zca-js API method: loadmsg`.
+- `bridge-watchdog.js` trước đây chỉ gọi `/relogin` mà không set `{ forceQR: false }`, dẫn đến bridge bật cơ chế QR scan thay vì cookie relogin tự động. File `start_bridge.vbs` chạy trực tiếp `server.js` mà không qua watchdog.
+
+**Nguyên nhân:**
+1. Khởi động bridge thủ công không qua watchdog làm sót PID nền khi terminal đóng, dẫn tới đụng độ port và phiên Zalo khi khởi động lại.
+2. Thiếu đồng bộ triệt để chính sách Safe Degrade cho DM trong `message-repository.js` (theo Fix 31).
+
+**Cách khắc phục:**
+1. **Dọn sạch process và chạy qua Watchdog duy nhất:**
+   - Terminate toàn bộ các PID node orphan/xung đột.
+   - Sửa `start_bridge.vbs` trỏ trực tiếp vào `bridge-watchdog.js` thay vì `server.js`.
+2. **Cập nhật `bridge-watchdog.js`:**
+   - Khi phát hiện `sessionDead` hoặc `!loggedIn`, gửi POST `/relogin` với body `{ forceQR: false }` để ưu tiên phục hồi bằng cookie tự động.
+3. **Vá `message-repository.js`:**
+   - Trong `getRecentMessages`: DM thread thực hiện safe degrade (trả về trực tiếp messages đã lưu trong SQLite, không fallback vào API `loadmsg`).
+   - Trong `syncDMHistory`: Trả về `{ userId, status: "done", synced: 0 }` để hoàn tất sync an toàn không ném exception.
+
+### 33. Vòng lặp tử thần Catchup WAF (Catchup Reconnect Death Loop) (2026-10-28 chiều)
+
+**Vấn đề:**
+- Bot Zalo đột ngột mất khả năng phản hồi tin nhắn; kiểm tra log thấy WebSocket liên tục bị ngắt kết nối với mã `1000 NORMAL_CLOSURE` mỗi 2-3 giây không ngừng (`disconnectCount` tăng vọt lên gần 100 lần).
+- Trong khi vòng lặp xảy ra, socket không thể duy trì để nhận hoặc gửi tin nhắn bình thường.
+
+**Nguyên nhân gốc rễ:**
+- Khi kết nối WebSocket bị transient drop (code 1006 hoặc mạng chập chờn ~1s), `zca-js` tự reconnect.
+- Sau khi reconnect, event `connected` kích hoạt hàm `_catchupMissedMessages()`.
+- Hàm catchup quét lịch sử các thread theo checkpoint SQLite và gọi `getGroupChatHistory()` trên các nhóm chat lớn/hoạt động nhiều (như nhóm `6641674278740425467`).
+- Phía máy chủ Zalo (WAF) phát hiện hành vi quét API lịch sử tự động ngay sau khi vừa mở socket nên chủ động gửi lệnh đóng WebSocket `1000 NORMAL_CLOSURE`.
+- Sau khi bị đóng với code 1000, `zca-js` reconnect ngay lập tức → lại kích hoạt `_catchupMissedMessages()` → Zalo WAF lại đá văng → tạo thành một **vòng lặp vô tận (Death Loop)** ngắt kết nối liên tục.
+
+**Cách khắc phục:**
+1. **Khóa Catchup qua biến môi trường:**
+   - Trong `bridge-watchdog.js` và `start-bridge.ps1`: đặt mặc định `ZALO_ENABLE_CATCHUP: "false"`.
+   - Bổ sung `ZALO_LOG_MESSAGES: "1"` để hỗ trợ debug tin nhắn realtime.
+2. **Cơ chế phòng vệ 2 lớp trong `zaloClient.js`:**
+   - **Bỏ qua Catchup khi drop ngắn (< 30s):** Trong `_wireListeners()`, nếu ngắt kết nối tạm thời chỉ kéo dài dưới 30s thì chuyển thẳng sang `READY`, tuyệt đối không gọi `_catchupMissedMessages()`.
+   - **Cooldown 5 phút:** Trong `_catchupMissedMessages()`, nếu lần catchup gần nhất cách chưa tới 5 phút (300.000ms), tự động bỏ qua và chuyển trạng thái về `READY`.
+
+### 34. Sửa lỗi lệch 1-2 ký tự định dạng Markdown (In đậm, In nghiêng) (2026-11-03)
+
+**Vấn đề:**
+- Tin nhắn gửi qua Zalo có in đậm (`**bold**`), in nghiêng (`*italic*` hoặc `_italic_`), tiêu đề (`# Title`) bị bôi đậm/nghiêng lệch 1-2 chữ sang từ bên cạnh hoặc nuốt nhầm ký tự.
+
+**Nguyên nhân:**
+- Cơ chế parse regex cũ thay thế chuỗi trực tiếp hoặc tính chỉ số `start`, `len` dựa trên chuỗi gốc trước khi bóc tách cú pháp markdown.
+- Khi các cú pháp như `**`, `*`, `_`, `~~`, `#` bị bóc tách khỏi văn bản, độ dài và chỉ mục ký tự trong chuỗi kết quả cuối cùng bị co ngắn lại. Nếu không tích lũy vị trí tuần tự theo chuỗi kết quả thuần (plain string), chỉ số offset sẽ bị trôi (offset drift) từ 1 đến 2 ký tự (hoặc nhiều hơn đối với tin nhắn dài hoặc có emoji/tiếng Việt).
+
+**Cách khắc phục:**
+1. **Viết lại bộ bóc tách Markdown tuần tự (`markdownToZalo.js`):**
+   - Sử dụng thuật toán duyệt chuỗi lũy tiến (sequential accumulative regex parsing):
+     ```javascript
+     let lastIndex = 0;
+     for (const match of src.matchAll(pattern)) {
+       // Thêm phần text thuần nằm trước match vào chuỗi plain
+       plain += src.slice(lastIndex, match.index);
+       // Ghi nhận vị trí start CHÍNH XÁC theo độ dài chuỗi plain hiện tại
+       const start = plain.length;
+       plain += inner; // Thêm nội dung hiển thị đã lược bỏ cú pháp markdown
+       const len = inner.length;
+       styles.push({ start, len, st: styleType });
+       lastIndex = match.index + match[0].length;
+     }
+     plain += src.slice(lastIndex);
+     ```
+   - Chuẩn hóa Unicode bằng `src.normalize("NFC")` giúp các dấu thanh tiếng Việt đồng nhất về độ dài ký tự trong JavaScript.
+   - Sắp xếp và gộp các styles liền kề cùng loại (`styles.sort` & merge).
+
+### 35. Lỗi Gateway không kết nối được Bridge do Windows Firewall chặn Docker (2026-11-03)
+
+**Vấn đề:**
+- Bot Zalo không phản hồi tin nhắn; Bridge Node.js đã bật và đang lắng nghe trên cổng `8787` (`0.0.0.0:8787`).
+- Gateway log báo lỗi liên tục:
+  ```
+  ERROR hermes_plugins.zalo_platform.adapter: Zalo: cannot reach bridge at http://host.docker.internal:8787 — Cannot connect to host host.docker.internal:8787 ssl:default [Connect call failed ('192.168.65.254', 8787)]
+  INFO gateway.run: Reconnect zalo failed, next retry in 300s
+  ```
+
+**Nguyên nhân:**
+- Khi chạy Hermes Gateway bên trong Docker container, container gọi ngược về máy chủ Windows qua `host.docker.internal` (IP NAT của Docker Desktop là `192.168.65.254`).
+- Windows Firewall chặn các kết nối Inbound từ dải mạng Docker tới cổng `8787` của host Windows nếu chưa có rule cho phép rõ ràng.
+
+**Cách khắc phục:**
+- Mở PowerShell với quyền **Administrator** trên Windows và tạo rule cho phép kết nối cổng 8787:
+  ```powershell
+  New-NetFirewallRule -DisplayName "Zalo Bridge 8787 (Docker)" `
+    -Direction Inbound -Protocol TCP -LocalPort 8787 `
+    -Action Allow -Profile Any
+  ```
+- Sau khi thêm rule, Gateway tự động kết nối lại thành công (`Zalo: connected to bridge http://host.docker.internal:8787`).
+
 ---
 
 ## 📚 Tham khảo
@@ -1289,3 +1386,5 @@ Hàng trăm dòng 429 liên tục trong nhiều phút.
 - [zca-js](https://github.com/nicholasxuu/zca-js) — Thư viện Zalo unofficial API
 - `D:\Antigravity\hermes-zalo-plugin\zaloClient.js` — File đã sửa
 - `D:\Antigravity\hermes-zalo-plugin\server.js` — Bridge chính (đã có auto-relogin)
+
+

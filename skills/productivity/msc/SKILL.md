@@ -11,7 +11,7 @@ prerequisites:
 metadata:
   hermes:
     tags: [MSC, Procurement, Vietnam, Government, API]
-    homepage: https://muasamcong.mpi.gov.vn
+    homepage: https://muasamcong.mof.gov.vn
 ---
 
 # MSC — Vietnamese Public Procurement
@@ -80,7 +80,7 @@ Example: `reports/msc/tbmt/2026/05/IB2500281578__2026-05-17_11-12-58__52352559.m
 exec, read
 
 ## Nguồn tham chiếu
-- https://muasamcong.mpi.gov.vn
+- https://muasamcong.mof.gov.vn
 
 ## Quy tắc an toàn
 - Chỉ thao tác trong scope được phép.

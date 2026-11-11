@@ -120,11 +120,11 @@ def _run_json(cmd: list[str]) -> dict:
 
 
 def _msc_token() -> str:
-    return _get_env('BOT2_MSC_TOKEN', 'MSC_TOKEN', 'MUASAMCONG_TOKEN', 'MSC_SESSION_TOKEN', default='')
+    return _get_env('MSC_SESSION_TOKEN', 'MSC_TOKEN', 'BOT2_MSC_TOKEN', 'MUASAMCONG_TOKEN', default='')
 
 
 def _msc_cookie() -> str:
-    return _get_env('BOT2_MSC_COOKIE', 'MSC_COOKIE', 'MUASAMCONG_COOKIE', default='')
+    return _get_env('MSC_COOKIE', 'BOT2_MSC_COOKIE', 'MUASAMCONG_COOKIE', default='')
 
 
 def _extract_file_from_obj(obj) -> tuple[str, str]:

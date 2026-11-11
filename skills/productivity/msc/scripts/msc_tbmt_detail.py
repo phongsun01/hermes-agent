@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 LOOKUP_SCRIPT = str(Path(__file__).resolve().parent / "msc_ib_lookup.py")
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 
 # Tab 1: Thông báo mời thầu
 URL_DETAIL_TBMT_LDT = "/o/egp-portal-contractor-selection-v2/services/expose/lcnt/bid-po-bido-notify-contractor-view/get-by-id"
@@ -524,12 +524,10 @@ def adapt_tab_kqlcnt(lookup_res: Dict[str, Any], kqlcnt_obj: Any) -> Dict[str, A
 def main():
     ap = argparse.ArgumentParser(description="Get TBMT detail (v3 IB real API adapter)")
     ap.add_argument("--ib", required=True)
-    ap.add_argument("--token", default="")
-    ap.add_argument("--cookie", default="")
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     ib = (args.ib or "").strip().upper()
     if re.fullmatch(r"IB\d{8,}", ib) is None:

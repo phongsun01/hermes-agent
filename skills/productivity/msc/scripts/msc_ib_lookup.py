@@ -6,7 +6,7 @@ import re
 import subprocess
 from typing import Any, Dict
 
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 ENDPOINT = "/o/egp-portal-contractor-selection-v2/services/smart/search"
 
 
@@ -94,15 +94,13 @@ def parse_args():
     # Backward compatible: accepts positional IB OR --ib
     ap.add_argument("ib_pos", nargs="?", help="IB code, e.g. IB12345678")
     ap.add_argument("--ib", dest="ib_opt", default="", help="IB code, e.g. IB12345678")
-    ap.add_argument("--token", default="", help="reCAPTCHA token (optional)")
-    ap.add_argument("--cookie", default="")
     return ap.parse_args()
 
 
 def main():
     args = parse_args()
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
     ib = normalize_ib(args.ib_opt or args.ib_pos or "")
     if not valid_ib(ib):
         print(json.dumps({"status": "invalid_ib", "message": "sai số IB", "ib": ib}, ensure_ascii=False))

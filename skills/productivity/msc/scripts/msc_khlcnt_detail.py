@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 LOOKUP_SCRIPT = str(Path(__file__).resolve().parent / "msc_pl_lookup.py")
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 URL_DETAIL_KHLCNT = "/o/egp-portal-contractor-selection-v2/services/expose/lcnt/bid-po-bidp-plan-project-view/get-by-id"
 URL_DETAIL_BID_KHLCNT = "/o/egp-portal-contractor-selection-v2/services/lcnt/bid-po-bidp-plan-project-view/get-bidp-plan-detail-by-id"
 
@@ -389,12 +389,10 @@ def adapt_packages(detail_main: Dict[str, Any], detail_bid: Any) -> List[Dict[st
 def main():
     ap = argparse.ArgumentParser(description="Get KHLCNT detail (v2 real API adapter)")
     ap.add_argument("--pl", required=True)
-    ap.add_argument("--token", default="")
-    ap.add_argument("--cookie", default="")
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     pl = (args.pl or "").strip().upper()
     if re.fullmatch(r"PL\d{8,}", pl) is None:

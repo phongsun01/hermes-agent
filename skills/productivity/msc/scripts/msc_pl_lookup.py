@@ -6,7 +6,7 @@ import re
 import subprocess
 from typing import Any, Dict
 
-BASE = "https://muasamcong.mpi.gov.vn"
+BASE = "https://muasamcong.mof.gov.vn"
 ENDPOINT = "/o/egp-portal-contractor-selection-v2/services/smart/search"
 
 
@@ -81,13 +81,11 @@ def extract_row(x: Dict[str, Any]) -> Dict[str, Any]:
 
 def main():
     ap = argparse.ArgumentParser(description="Lookup a single KHLCNT by PL code")
-    ap.add_argument("--token", default="", help="reCAPTCHA token")
     ap.add_argument("--pl", required=True, help="PL code, e.g. PL12345678")
-    ap.add_argument("--cookie", default="")
     args = ap.parse_args()
 
-    token = args.token or os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
-    cookie = args.cookie or os.environ.get("MSC_COOKIE") or ""
+    token = os.environ.get("MSC_SESSION_TOKEN") or os.environ.get("MSC_TOKEN") or ""
+    cookie = os.environ.get("MSC_COOKIE") or ""
 
     pl = normalize_pl(args.pl)
     if not valid_pl(pl):

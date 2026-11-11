@@ -25,12 +25,10 @@ def run_one(token: str, noti: str, date: str, cookie: str = '') -> int:
 
 def main():
     ap = argparse.ArgumentParser(description='MSC hidden API daily KHLCNT/TBMT report')
-    ap.add_argument('--token', default='')
-    ap.add_argument('--cookie', default='')
     args = ap.parse_args()
 
-    token = args.token or os.environ.get('MSC_SESSION_TOKEN') or os.environ.get('MSC_TOKEN') or ''
-    cookie = args.cookie or os.environ.get('MSC_COOKIE') or ''
+    token = os.environ.get('MSC_SESSION_TOKEN') or os.environ.get('MSC_TOKEN') or ''
+    cookie = os.environ.get('MSC_COOKIE') or ''
 
     kh_y = run_one(token, 'khlcnt', 'yesterday', cookie)
     kh_t = run_one(token, 'khlcnt', 'today', cookie)
