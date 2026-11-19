@@ -399,7 +399,7 @@ RUN /opt/hermes/.venv/bin/python -m docker.build_agent
 
 # Install custom dependencies for VN automation skills (XSMB, CC, MSC, Vietlott)
 RUN UV_BIN=$(find /opt/hermes/tools -name uv -type f | head -n 1) && \
-    "$UV_BIN" pip install --python /opt/hermes/.venv openpyxl pandas
+    "$UV_BIN" pip install --python /opt/hermes/.venv openpyxl pandas playwright
 
 # Wire the exec shim and install-method stamp.  Files under /opt/hermes are
 # already root-owned (COPY, dep assembly, npm install all run as root) and
